@@ -6,7 +6,6 @@
 #include <math.h>
 
 #define FFTWINDOW 8192
-#define SAMPLERATE 44100
 
 void CQuickTrigConsts::Initialize() // function to initialise quick sin & cos
 {
@@ -105,6 +104,7 @@ void AKnockout::suspend ()
 	memset(gOutFIFO, 0, MAX_FRAME_LENGTH*sizeof(float));
 	memset(gFFTworksp, 0, 2*MAX_FRAME_LENGTH*sizeof(float));
 	memset(gOutputAccum, 0, 2*MAX_FRAME_LENGTH*sizeof(float));
+	memset(gOutputBuffer, 0, 2*MAX_FRAME_LENGTH*sizeof(float));
 	memset(gAnaFreq, 0, MAX_FRAME_LENGTH*sizeof(float));
 	memset(gAnaMagn, 0, MAX_FRAME_LENGTH*sizeof(float));
 	memset(gInFIFO2, 0, MAX_FRAME_LENGTH*sizeof(float));
@@ -126,7 +126,7 @@ void AKnockout::run(uint32_t sampleFrames)
 
 	// arguments are number of samples to process, fft window size, sample overlap (4-32), input buffer, output buffer, init flag, gain, R input gain, decay, l cut, hi cut
 
-	do_rebuild(sampleFrames, FFTWINDOW, iOsamp, SAMPLERATE, p(0), p(1), p(2),1, fOut*4, fIn*4, fDecay, iBlur, loCut, hiCut, centre);
+	do_rebuild(sampleFrames, FFTWINDOW, iOsamp, sampleFrames, p(0), p(1), p(2),1, fOut*4, fIn*4, fDecay, iBlur, loCut, hiCut, centre);
 }
 
 // -----------------------------------------------------------------------------------------------------------------
