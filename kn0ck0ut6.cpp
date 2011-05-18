@@ -50,22 +50,29 @@ AKnockoutProgram::AKnockoutProgram ()
 //-----------------------------------------------------------------------------
 AKnockout::AKnockout(double rate) : Plugin<AKnockout>(7)
 {
-	forward=
 		fLoCut = fHiCut = 0;
 
 	//setprogram(0)
 
 	gInFIFO = new float [MAX_FRAME_LENGTH];
 	gOutFIFO = new float [MAX_FRAME_LENGTH];
-	gFFTworksp = new fftw_malloc(sizeof(fftw_complex) * MAX_FRAME_LENGTH);
+	gFFTworksp = (fftwf_complex*)fftw_malloc(sizeof(fftw_complex) * MAX_FRAME_LENGTH);
+	gOutputBuffer=new float [2*MAX_FRAME_LENGTH];
 	gOutputAccum = new float [2*MAX_FRAME_LENGTH];
 	gAnaFreq = new float [MAX_FRAME_LENGTH];
 	gAnaMagn = new float [MAX_FRAME_LENGTH];
 	gInFIFO2 = new float [MAX_FRAME_LENGTH];
-	gFFTworksp2 = new fftw_malloc(sizeof(fftw_complex) * MAX_FRAME_LENGTH);
+	gFFTworksp2 = (fftwf_complex*)fftw_malloc(sizeof(fftw_complex) * MAX_FRAME_LENGTH);
 	gAnaMagn2 = new float [MAX_FRAME_LENGTH];
 	gDecay = new float [MAX_FRAME_LENGTH];
 	window = new double [FFTWINDOW];
+
+	forward_sp1= fftwf_plan_dft_r2c_1d(FFTWINDOW, gInFIFO , gFFTworksp,
+                                    FFTW_ESTIMATE);
+	forward_sp2= fftwf_plan_dft_r2c_1d(FFTWINDOW, gInFIFO2, gFFTworksp2,
+                                    FFTW_ESTIMATE);	
+	backwards=fftwf_plan_dft_c2r_1d(FFTWINDOW, gFFTworksp, gOutputBuffer,
+                                    FFTW_ESTIMATE);
 
 	makelookup(FFTWINDOW);
 
@@ -172,9 +179,6 @@ void AKnockout::processReplacing(float **inputs, float **outputs, long sampleFra
 	// arguments are number of samples to process, fft window size, sample overlap (4-32), input buffer, output buffer, init flag, gain, R input gain, decay, l cut, hi cut
 
 	do_rebuild(sampleFrames, FFTWINDOW, iOsamp, SAMPLERATE, in1, in2, out1,1, fOut*4, fIn*4, fDecay, iBlur, loCut, hiCut, centre);
-
-	vu=(*out1);
-
 }
 
 // -----------------------------------------------------------------------------------------------------------------
@@ -221,20 +225,19 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 
 			/* do windowing and re,im interleave */
 			for (k = 0; k < fftFrameSize;k++) {
-				gFFTworksp[2*k] = gInFIFO[k] * window[k];
-				gFFTworksp2[2*k] = gInFIFO2[k] * window[k];
-				gFFTworksp[2*k+1] = gFFTworksp2[2*k+1] = 0.;
+				gInFIFO[k] *= window[k];
+				gInFIFO2[k] *= window[k];
 			}
 
 			/* do transform */
-			smsFft(gFFTworksp, fftFrameSize, -1);
+			fftwf_execute(forward_sp1);
 
 			/* frequency analysis */
 			for (k = 0; k <= fftFrameSize2; k++) {
 
 				/* de-interlace FFT buffer */
-				real = gFFTworksp[2*k];
-				imag = gFFTworksp[2*k+1];
+				real = gFFTworksp[2*k][0];
+				imag = gFFTworksp[2*k][1];
 
 				/* compute magnitude and phase */
 				gAnaMagn[k] = 2.*sqrt(real*real + imag*imag);
@@ -254,27 +257,27 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			}
 
 			/* do transform */
-			smsFft(gFFTworksp2, fftFrameSize, -1);
+			fftwf_execute(forward_sp2);
 
 
 			/* this is the processing section */
 
 			// lo cut
 			for (k = 0; k <= loCut+iBlur; k++) {  
-				gFFTworksp[2*k]=0;
-				gFFTworksp[2*k+1]=0;
+				gFFTworksp[2*k][0]=0;
+				gFFTworksp[2*k][1]=0;
 			}
 
 			// hi cut
 			for (k = fftFrameSize2-HiCut-iBlur; k <= fftFrameSize2; k++) {  
-				gFFTworksp[2*k]=0;
-				gFFTworksp[2*k+1]=0;		
+				gFFTworksp[2*k][0]=0;
+				gFFTworksp[2*k][1]=0;		
 			}
 
 			/* get R input magnitudes */
 
 			for (k = loCut; k <= fftFrameSize2-HiCut; k++) {
-				gAnaMagn2[k]=(2.*sqrt(gFFTworksp2[2*k]*gFFTworksp2[2*k] + gFFTworksp2[2*k+1]*gFFTworksp2[2*k+1]));
+				gAnaMagn2[k]=(2.*sqrt(gFFTworksp2[2*k][0]*gFFTworksp2[2*k][0] + gFFTworksp2[2*k][1]*gFFTworksp2[2*k][1]));
 			}
 
 
@@ -308,22 +311,17 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 				tmp += (double)k*expct;
 
 				/* get real and imag part and re-interleave */
-				gFFTworksp[2*k] = magn*myQT.QuickCos(tmp);
-				gFFTworksp[2*k+1] = magn*myQT.QuickSin(tmp);
+				gFFTworksp[2*k][0] = magn*myQT.QuickCos(tmp);
+				gFFTworksp[2*k][1] = magn*myQT.QuickSin(tmp);
 
 			} 
 
-
-			/* zero negative frequencies */
-			for (k = fftFrameSize+2; k < 2*fftFrameSize; k++) {
-				gFFTworksp[k] = 0.;
-			}
 			/* do inverse transform */
-			smsFft(gFFTworksp, fftFrameSize, 1);
+			fftwf_execute(backwards);
 
 			/* do windowing and add to output accumulator */ 
 			for(k=0; k < fftFrameSize; k++) {
-				gOutputAccum[k] += window[k]*gFFTworksp[2*k]/(dOutfactor);
+				gOutputAccum[k] += window[k]*gOutputBuffer[k]/(dOutfactor);
 			}
 
 			/* transfer output accum to output buffer */

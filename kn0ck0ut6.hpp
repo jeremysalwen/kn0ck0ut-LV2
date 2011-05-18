@@ -67,6 +67,7 @@ private:
 	float* gInFIFO;
 	float* gOutFIFO;
 	float* gOutputAccum;
+	float* gOutputBuffer;
 	float* gAnaFreq;
 	float* gAnaMagn;
 	float* gInFIFO2;
@@ -77,11 +78,11 @@ private:
 	long gInit;
 
 	
-	fftw_complex * gFFTworksp2;
-	fftw_complex * gFFTworksp;
-	fftw_plan forward_sp1;
-	fftw_plan forward_sp2;
-	fftw_plan backwards;
+	fftwf_complex * gFFTworksp2;
+	fftwf_complex * gFFTworksp;
+	fftwf_plan forward_sp1;
+	fftwf_plan forward_sp2;
+	fftwf_plan backwards;
 
 };
 

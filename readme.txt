@@ -1,3 +1,8 @@
+LV2 port of kn0ck0ut by Jeremy Salwen.
+
+I could only get my hands on version 0.5.  After that he stopped posting the
+source, and is not responding to emails.
+
 Kn0ck0ut v0.5
 
 --++/* by St3pan0va */++--
