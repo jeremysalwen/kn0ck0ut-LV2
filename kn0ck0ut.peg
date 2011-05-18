@@ -1,0 +1,45 @@
+#ifndef kn_ck_ut_peg
+#define kn_ck_ut_peg
+
+
+#ifndef PEG_STRUCT
+#define PEG_STRUCT
+typedef struct {
+  float min;
+  float max;
+  float default_value;
+  char toggled;
+  char integer;
+  char logarithmic;
+} peg_data_t;
+#endif
+
+/* <urn:St3pan0va.plugins.kn0ck0ut> */
+
+static const char p_uri[] = "urn:St3pan0va.plugins.kn0ck0ut";
+
+enum p_port_enum {
+  p_left,
+  p_right,
+  p_out,
+  p_mode,
+  p_lowcut,
+  p_highcut,
+  p_decay,
+  p_blur,
+  p_n_ports
+};
+
+static const peg_data_t p_ports[] = {
+  { -3.40282e+38, 3.40282e+38, -3.40282e+38, 0, 0, 0 }, 
+  { -3.40282e+38, 3.40282e+38, -3.40282e+38, 0, 0, 0 }, 
+  { -3.40282e+38, 3.40282e+38, -3.40282e+38, 0, 0, 0 }, 
+  { -3.40282e+38, 3.40282e+38, 0, 0, 0, 0 }, 
+  { 0, 128, 0, 0, 0, 0 }, 
+  { 0, 1, 0, 0, 0, 0 }, 
+  { 0, 127, 0, 0, 0, 0 }, 
+  { 0, 24, 0, 0, 0, 0 }, 
+};
+
+
+#endif /* kn_ck_ut_peg */
