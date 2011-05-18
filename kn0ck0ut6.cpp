@@ -315,8 +315,9 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 
 
 			/* zero negative frequencies */
-			for (k = fftFrameSize+2; k < 2*fftFrameSize; k++) gFFTworksp[k] = 0.;
-
+			for (k = fftFrameSize+2; k < 2*fftFrameSize; k++) {
+				gFFTworksp[k] = 0.;
+			}
 			/* do inverse transform */
 			smsFft(gFFTworksp, fftFrameSize, 1);
 

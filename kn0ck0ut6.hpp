@@ -66,18 +66,19 @@ private:
 	
 	float* gInFIFO;
 	float* gOutFIFO;
-	fftw_complex * gFFTworksp;
 	float* gOutputAccum;
 	float* gAnaFreq;
 	float* gAnaMagn;
 	float* gInFIFO2;
-	fftw_complex * gFFTworksp2;
 	float* gAnaMagn2;
 	float* gDecay;
 	double* window;
 	static long gRover;
 	long gInit;
+
 	
+	fftw_complex * gFFTworksp2;
+	fftw_complex * gFFTworksp;
 	fftw_plan forward_sp1;
 	fftw_plan forward_sp2;
 	fftw_plan backwards;
