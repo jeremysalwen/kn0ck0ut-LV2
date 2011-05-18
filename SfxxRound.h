@@ -4,13 +4,15 @@
 #ifndef SFXXROUND_H
 #define SFXXROUND_H
 
-#ifdef _M_IX86
-
-#include "SfxxInline.h"
 
 #ifndef PI
 #define PI 3.1415926535897932384626433832795
 #endif
+
+
+#ifdef _M_IX86
+
+#include "SfxxInline.h"
 
 const double _TWOPOW32 = ((double)(65536.0 * 65536.0));
 

@@ -28,7 +28,7 @@ private:
 };
 
 
-class AKnockout : public AudioEffectX
+class AKnockout 
 {
 public:
 	AKnockout(audioMasterCallback audioMaster);
