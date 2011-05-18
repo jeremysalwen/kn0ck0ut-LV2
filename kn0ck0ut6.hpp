@@ -14,11 +14,6 @@ using namespace LV2;
 
 #define MAX_FRAME_LENGTH 16384
 
-enum
-{
-kCentre, kIn, kLoCut, kHiCut, kDecay, kBlur, kOut, kNumParams
-};
-
 
 class AKnockout:public Plugin<AKnockout> {
 	public:

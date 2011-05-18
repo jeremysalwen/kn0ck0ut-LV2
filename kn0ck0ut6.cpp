@@ -36,17 +36,17 @@ CQuickTrigInitialize gQuickTrigInitialize;
 
 
 //-----------------------------------------------------------------------------
-AKnockout::AKnockout(double rate) : Plugin<AKnockout>(8)
+AKnockout::AKnockout(double rate) : Plugin<AKnockout>(p_n_ports)
 {
 	gInFIFO = new float [MAX_FRAME_LENGTH];
 	gOutFIFO = new float [MAX_FRAME_LENGTH];
-	gFFTworksp = (fftwf_complex*)fftw_malloc(sizeof(fftw_complex) * MAX_FRAME_LENGTH);
+	gFFTworksp = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * MAX_FRAME_LENGTH);
 	gOutputBuffer=new float [2*MAX_FRAME_LENGTH];
 	gOutputAccum = new float [2*MAX_FRAME_LENGTH];
 	gAnaFreq = new float [MAX_FRAME_LENGTH];
 	gAnaMagn = new float [MAX_FRAME_LENGTH];
 	gInFIFO2 = new float [MAX_FRAME_LENGTH];
-	gFFTworksp2 = (fftwf_complex*)fftw_malloc(sizeof(fftw_complex) * MAX_FRAME_LENGTH);
+	gFFTworksp2 = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * MAX_FRAME_LENGTH);
 	gAnaMagn2 = new float [MAX_FRAME_LENGTH];
 	gDecay = new float [MAX_FRAME_LENGTH];
 	window = new double [FFTWINDOW];
@@ -69,14 +69,14 @@ AKnockout::~AKnockout() // delete buffers in destructor
 {
 	delete gInFIFO;
 	delete gOutFIFO;
-	fftw_free(gFFTworksp);
+	fftwf_free(gFFTworksp);
 	delete gOutputAccum;
 	delete gOutputBuffer;
 	delete gAnaFreq;
 	delete gAnaMagn;
 	delete gAnaMagn2;
 	delete gInFIFO2;
-	fftw_free(gFFTworksp2);
+	fftwf_free(gFFTworksp2);
 	delete gDecay;
 	delete window;
 
@@ -104,7 +104,7 @@ void AKnockout::run(uint32_t sampleFrames)
 
 	int loCut = int (*p(p_lowcut)); 
 	int hiCut = int (*p(p_highcut) *FFTWINDOW/2);
-	int centre = (*p(p_centre)>0.5);
+	int centre = (*p(p_mode)>0);
 
 	int iOsamp = 8;
 
@@ -275,3 +275,5 @@ void AKnockout::makelookup(int fftFrameSize)
 		window[k] = -.5*cos(2*PI*(double)k/(double)fftFrameSize)+.5;
 	}
 }
+
+static int _ = AKnockout::register_class(p_uri);
