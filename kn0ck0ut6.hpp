@@ -36,17 +36,8 @@ class AKnockout:public Plugin<AKnockout> {
 	public:
 	AKnockout(double srate);
 	~AKnockout();
-
-	virtual void process(float **inputs, float **outputs, long sampleFrames);
-	virtual void processReplacing(float **inputs, float **outputs, long sampleFrames);
-	virtual void setProgram(long program);
-	virtual void setParameter(long index, float value);
-	virtual float getParameter(long index);
-	virtual void getParameterLabel(long index, char *label);
-	virtual void getParameterName(long index, char *text);
-	virtual float getVu();
-	virtual void suspend();
-	virtual void resume();
+	void run(uint32_t numsamples);
+	void suspend();
 	CQuickTrig myQT;
 	
 protected:
@@ -56,7 +47,6 @@ protected:
 	
 	
 private:
-	
 	AKnockoutProgram programs;
 	float *buffer;
 	float fCentre, fIn, fLoCut, fOut, fHiCut, fDecay, fBlur;

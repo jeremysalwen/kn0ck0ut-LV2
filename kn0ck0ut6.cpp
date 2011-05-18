@@ -48,11 +48,10 @@ AKnockoutProgram::AKnockoutProgram ()
 
 
 //-----------------------------------------------------------------------------
-AKnockout::AKnockout(double rate) : Plugin<AKnockout>(7)
+AKnockout::AKnockout(double rate) : Plugin<AKnockout>(8)
 {
 		fLoCut = fHiCut = 0;
 
-	//setprogram(0)
 
 	gInFIFO = new float [MAX_FRAME_LENGTH];
 	gOutFIFO = new float [MAX_FRAME_LENGTH];
@@ -87,6 +86,7 @@ AKnockout::~AKnockout() // delete buffers in destructor
 	delete gOutFIFO;
 	fftw_free(gFFTworksp);
 	delete gOutputAccum;
+	delete gOutputBuffer;
 	delete gAnaFreq;
 	delete gAnaMagn;
 	delete gAnaMagn2;
@@ -95,18 +95,6 @@ AKnockout::~AKnockout() // delete buffers in destructor
 	delete gDecay;
 	delete window;
 
-}
-
-//-----------------------------------------------------------------------------------------
-void AKnockout::setProgram (long program)
-{
-	setParameter (kCentre, programs.fCentre);
-	setParameter (kIn, programs.fIn);	
-	setParameter (kLoCut, programs.fLoCut);
-	setParameter (kOut, programs.fOut);
-	setParameter (kHiCut, programs.fHiCut);
-	setParameter (kDecay, programs.fDecay);
-	setParameter (kBlur, programs.fBlur);
 }
 
 
@@ -124,49 +112,9 @@ void AKnockout::suspend ()
 	memset(gAnaMagn2, 0, MAX_FRAME_LENGTH*sizeof(float));
 }
 
-//------------------------------------------------------------------------
-void AKnockout::setParameter (long index, float value)
-{
-	switch (index)
-	{
-		case kCentre :       fCentre = programs.fCentre = value; break;
-		case kIn :       fIn = programs.fIn = value; break;
-		case kLoCut : fLoCut = programs.fLoCut = value; break;
-		case kOut :      fOut = programs.fOut = value; break;
-		case kHiCut : 	 fHiCut = programs.fHiCut = value; break;
-		case kDecay :	 fDecay = programs.fDecay = value; break;
-		case kBlur :	 fBlur = programs.fBlur = value; break;
-
-	}
-}
-
-
 //-----------------------------------------------------------------------------------------
-float AKnockout::getParameter (long index)
+void AKnockout::run(uint32_t sampleFrames)
 {
-	float v = 0;
-
-	switch (index)
-	{
-		case kCentre :		 v = (fCentre>0.5); break;
-		case kIn :		 v = fIn; break;
-		case kLoCut : v = fLoCut; break;
-		case kOut :      v = fOut; break;
-		case kHiCut :    v = fHiCut; break;
-		case kDecay :	 v = fDecay; break;
-		case kBlur :	 v = fBlur; break;
-
-	}
-	return v;
-}
-
-
-//-----------------------------------------------------------------------------------------
-void AKnockout::processReplacing(float **inputs, float **outputs, long sampleFrames)
-{
-	float *in1  =  inputs[0];
-	float *in2  =  inputs[1];   
-	float *out1 = outputs[0];
 
 	int loCut = int (fLoCut*128); 
 	int hiCut = int (fHiCut*FFTWINDOW/2);
@@ -178,7 +126,7 @@ void AKnockout::processReplacing(float **inputs, float **outputs, long sampleFra
 
 	// arguments are number of samples to process, fft window size, sample overlap (4-32), input buffer, output buffer, init flag, gain, R input gain, decay, l cut, hi cut
 
-	do_rebuild(sampleFrames, FFTWINDOW, iOsamp, SAMPLERATE, in1, in2, out1,1, fOut*4, fIn*4, fDecay, iBlur, loCut, hiCut, centre);
+	do_rebuild(sampleFrames, FFTWINDOW, iOsamp, SAMPLERATE, p(0), p(1), p(2),1, fOut*4, fIn*4, fDecay, iBlur, loCut, hiCut, centre);
 }
 
 // -----------------------------------------------------------------------------------------------------------------
