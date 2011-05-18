@@ -24,7 +24,7 @@
     lv2:name "Input Left" ;
     ], [
     a lv2:AudioPort ;
-    a lv2:OutputPort ;
+    a lv2:InputPort ;
     lv2:index 1 ;
     lv2:symbol "right" ;
     lv2:name "Input Right" ;

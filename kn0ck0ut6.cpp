@@ -38,6 +38,7 @@ CQuickTrigInitialize gQuickTrigInitialize;
 //-----------------------------------------------------------------------------
 AKnockout::AKnockout(double rate) : Plugin<AKnockout>(p_n_ports)
 {
+	sampleRate=rate;
 	gInFIFO = new float [MAX_FRAME_LENGTH];
 	gOutFIFO = new float [MAX_FRAME_LENGTH];
 	gFFTworksp = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * MAX_FRAME_LENGTH);
@@ -112,7 +113,7 @@ void AKnockout::run(uint32_t sampleFrames)
 	float fDecay= *p(p_decay);
 	// arguments are number of samples to process, fft window size, sample overlap (4-32), input buffer, output buffer, init flag, gain, R input gain, decay, l cut, hi cut
 
-	do_rebuild(sampleFrames, FFTWINDOW, iOsamp, sampleFrames, p(p_left), p(p_right), p(p_out),1, fDecay, iBlur, loCut, hiCut, centre);
+	do_rebuild(sampleFrames, FFTWINDOW, iOsamp, sampleRate, p(p_left), p(p_right), p(p_out),1, fDecay, iBlur, loCut, hiCut, centre);
 }
 
 // -----------------------------------------------------------------------------------------------------------------

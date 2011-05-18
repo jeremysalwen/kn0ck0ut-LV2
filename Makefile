@@ -2,7 +2,8 @@ CXXFLAGS+=-shared -fPIC -DPIC `pkg-config lv2-plugin fftw3f --cflags`
 LDFLAGS +=-shared `pkg-config lv2-plugin fftw3f --libs`
 
 BUNDLE = kn0ck0ut.lv2
-INSTALL_DIR = $(DESTDIR)/lib/lv2
+INSTALL_DIR = $(DESTDIR)/usr/lib/lv2
+
 
 all: $(BUNDLE)
 
