@@ -59,7 +59,7 @@ protected:
 // Try this. Should work.
 class CImplementsRounding {
 public:
-    satic int Round(double d) { return (int)d; }
+    static int Round(double d) { return (int)d; }
 };
 
 #endif
