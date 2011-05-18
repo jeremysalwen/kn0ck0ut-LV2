@@ -1,7 +1,6 @@
 /* kn0ck0ut v0.4 by st3pan0va 2004 */
 
 #include "kn0ck0ut6.hpp"
-#include "AEffEditor.hpp"
 #include <stdio.h> 
 #include <string.h> 
 #include <math.h> 
