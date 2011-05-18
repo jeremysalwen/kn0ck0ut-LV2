@@ -53,7 +53,7 @@ protected:
 };
 
 #else
-#error Only works on x86.
+//#error Only works on x86.
 // but then again, sensible platforms should have to do this
 // kind of crap to convert a float to an integer.
 // Try this. Should work.

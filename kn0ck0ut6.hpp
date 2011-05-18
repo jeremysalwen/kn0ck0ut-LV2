@@ -3,15 +3,13 @@
 #ifndef __AGAIN_H
 #define __AGAIN_H
 
-#include "audioeffectx.h"
 #include "float.h"
-#include <windows.h>
 #include "QuickTrig.h"
 
 #define MAX_FRAME_LENGTH 16384
 
-enum 
-{ 
+enum
+{
 kCentre, kIn, kLoCut, kHiCut, kDecay, kBlur, kOut, kNumParams
 };
 
