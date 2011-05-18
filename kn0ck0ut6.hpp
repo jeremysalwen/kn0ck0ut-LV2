@@ -4,8 +4,10 @@
 #define __AGAIN_H
 
 #include <lv2plugin.hpp>
+#include <fftw3.h>
 #include "float.h"
 #include "QuickTrig.h"
+
 
 using namespace LV2;
 
@@ -54,32 +56,32 @@ protected:
 	
 	
 private:
-	void setDelay(float delay);
 	
 	AKnockoutProgram programs;
 	float *buffer;
 	float fCentre, fIn, fLoCut, fOut, fHiCut, fDecay, fBlur;
-	float vu;
-	long delay;
 	
 	void do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp, float sampleRate, float *indata, float *indata2, float *outdata, long gInit, float fGain, float fInGain, float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract);
 	void makelookup(int fftFrameSize);
 	
 	float* gInFIFO;
 	float* gOutFIFO;
-	float* gFFTworksp;
+	fftw_complex * gFFTworksp;
 	float* gOutputAccum;
 	float* gAnaFreq;
 	float* gAnaMagn;
 	float* gInFIFO2;
-	float* gFFTworksp2;
+	fftw_complex * gFFTworksp2;
 	float* gAnaMagn2;
 	float* gDecay;
 	double* window;
 	static long gRover;
 	long gInit;
 	
-	
+	fftw_plan forward_sp1;
+	fftw_plan forward_sp2;
+	fftw_plan backwards;
+
 };
 
 

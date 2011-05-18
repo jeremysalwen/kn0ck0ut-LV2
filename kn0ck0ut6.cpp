@@ -50,18 +50,19 @@ AKnockoutProgram::AKnockoutProgram ()
 //-----------------------------------------------------------------------------
 AKnockout::AKnockout(double rate) : Plugin<AKnockout>(7)
 {
-	fLoCut = fHiCut = vu = 0;
+	forward=
+	fLoCut = fHiCut = 0;
 
 	//setprogram(0)
 	
 	gInFIFO = new float [MAX_FRAME_LENGTH];
 	gOutFIFO = new float [MAX_FRAME_LENGTH];
-	gFFTworksp = new float [2*MAX_FRAME_LENGTH];
+	gFFTworksp = new fftw_malloc(sizeof(fftw_complex) * MAX_FRAME_LENGTH);
 	gOutputAccum = new float [2*MAX_FRAME_LENGTH];
 	gAnaFreq = new float [MAX_FRAME_LENGTH];
 	gAnaMagn = new float [MAX_FRAME_LENGTH];
 	gInFIFO2 = new float [MAX_FRAME_LENGTH];
-	gFFTworksp2 = new float [2*MAX_FRAME_LENGTH];
+	gFFTworksp2 = new fftw_malloc(sizeof(fftw_complex) * MAX_FRAME_LENGTH);
 	gAnaMagn2 = new float [MAX_FRAME_LENGTH];
 	gDecay = new float [MAX_FRAME_LENGTH];
 	window = new double [FFTWINDOW];
@@ -77,13 +78,13 @@ AKnockout::~AKnockout() // delete buffers in destructor
 {
 	delete gInFIFO;
 	delete gOutFIFO;
-	delete gFFTworksp;
+	fftw_free(gFFTworksp);
 	delete gOutputAccum;
 	delete gAnaFreq;
 	delete gAnaMagn;
 	delete gAnaMagn2;
 	delete gInFIFO2;
-	delete gFFTworksp2;
+	fftw_free(gFFTworksp2);
 	delete gDecay;
 	delete window;
 	
