@@ -151,7 +151,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			gRover = inFifoLatency;
 
 
-			/* do windowing and re,im interleave */
+			/* do windowing  */
 			for (long k = 0; k < fftFrameSize;k++) {
 				gInFIFO[k] *= window[k];
 				gInFIFO2[k] *= window[k];
