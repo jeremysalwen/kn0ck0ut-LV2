@@ -64,7 +64,6 @@ private:
 	
 	void do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp, float sampleRate, float *indata, float *indata2, float *outdata, long gInit, float fGain, float fInGain, float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract);
 	void makelookup(int fftFrameSize);
-	inline void smsFft(float *fftBuffer, long fftFrameSize, long sign);
 	
 	float* gInFIFO;
 	float* gOutFIFO;
