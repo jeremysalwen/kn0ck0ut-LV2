@@ -1,0 +1,19 @@
+ports:
+
+in 1,
+in 2,
+out
+kcentre boolean "Extract centre"
+locut float "Lo freq cut"
+hicut float "Hi freq cut"
+decay float "Decay"
+blur float "Blur"
+
+units:
+		case kCentre :   strcpy (label, "        "); 	break;
+		case kIn :		strcpy (label, "   dB   ");	break;		
+		case kLoCut : strcpy (label, " threshold ");	break;
+		case kOut :      strcpy (label, "   dB   ");	break;
+		case kHiCut : strcpy (label, " threshold ");	break;
+		case kDecay : strcpy(label, " amount "); break;
+		case kBlur : strcpy(label, " amount "); break;

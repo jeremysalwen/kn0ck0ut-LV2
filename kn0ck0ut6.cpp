@@ -1,12 +1,12 @@
 /* kn0ck0ut v0.4 by st3pan0va 2004 */
 
 #include "kn0ck0ut6.hpp"
-#include <stdio.h> 
-#include <string.h> 
-#include <math.h> 
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
 
 #define FFTWINDOW 8192
-#define SAMPLERATE 44100 
+#define SAMPLERATE 44100
 
 void CQuickTrigConsts::Initialize() // function to initialise quick sin & cos
 {
@@ -44,27 +44,15 @@ AKnockoutProgram::AKnockoutProgram ()
 	fHiCut = 0;
 	fDecay = 0;
 	
-	strcpy (name, "Init");
 }
 
 
 //-----------------------------------------------------------------------------
-AKnockout::AKnockout(audioMasterCallback audioMaster) : AudioEffectX(audioMaster, 16, kNumParams)	// 1 program, 1 parameter only
+AKnockout::AKnockout(double rate) : Plugin<AKnockout>(7)
 {
-	
-	programs = new AKnockoutProgram[numPrograms];
 	fLoCut = fHiCut = vu = 0;
-	
-	if (programs)
-		setProgram (0);
-	
-	hasVu ();	
-	setNumInputs(2);		// stereo in
-	setNumOutputs(2);		// mono out but cant tell wavelab that
-	setUniqueID("k0ut");	// identify
-//	canMono();				// doesn't make sense to feed both inputs with the same signal
-	canProcessReplacing();	// supports only replacing output
-	strcpy(programName, "Default");	// default program name
+
+	//setprogram(0)
 	
 	gInFIFO = new float [MAX_FRAME_LENGTH];
 	gOutFIFO = new float [MAX_FRAME_LENGTH];
@@ -104,37 +92,18 @@ AKnockout::~AKnockout() // delete buffers in destructor
 //-----------------------------------------------------------------------------------------
 void AKnockout::setProgram (long program)
 {
-	AKnockoutProgram * ap = &programs[program];
-
-	curProgram = program;
-	setParameter (kCentre, ap->fCentre);
-	setParameter (kIn, ap->fIn);	
-	setParameter (kLoCut, ap->fLoCut);
-	setParameter (kOut, ap->fOut);
-	setParameter (kHiCut, ap->fHiCut);
-	setParameter (kDecay, ap->fDecay);
-	setParameter (kBlur, ap->fBlur);
-	
+	setParameter (kCentre, programs.fCentre);
+	setParameter (kIn, programs.fIn);	
+	setParameter (kLoCut, programs.fLoCut);
+	setParameter (kOut, programs.fOut);
+	setParameter (kHiCut, programs.fHiCut);
+	setParameter (kDecay, programs.fDecay);
+	setParameter (kBlur, programs.fBlur);
 }
 
 //------------------------------------------------------------------------
 void AKnockout::setDelay (float fdelay)
 {	
-}
-//------------------------------------------------------------------------
-
-void AKnockout::setProgramName(char *name)
-{
-	strcpy(programName, name);
-}
-
-//-----------------------------------------------------------------------------------------
-void AKnockout::getProgramName (char *name)
-{
-	if (!strcmp (programs[curProgram].name, "Init"))
-		sprintf (name, "%s %d", programs[curProgram].name, curProgram + 1);
-	else
-		strcpy (name, programs[curProgram].name);
 }
 
 //-----------------------------------------------------------------------------------------
@@ -168,21 +137,17 @@ float AKnockout::getVu ()
 //------------------------------------------------------------------------
 void AKnockout::setParameter (long index, float value)
 {
-	AKnockoutProgram * ap = &programs[curProgram];
-
 	switch (index)
 	{
-		case kCentre :       fCentre = ap->fCentre = value; break;
-		case kIn :       fIn = ap->fIn = value; break;
-		case kLoCut : fLoCut = ap->fLoCut = value; break;
-		case kOut :      fOut = ap->fOut = value; break;
-		case kHiCut : 	 fHiCut = ap->fHiCut = value; break;
-		case kDecay :	 fDecay = ap->fDecay = value; break;
-		case kBlur :	 fBlur = ap->fBlur = value; break;
+		case kCentre :       fCentre = programs.fCentre = value; break;
+		case kIn :       fIn = programs.fIn = value; break;
+		case kLoCut : fLoCut = programs.fLoCut = value; break;
+		case kOut :      fOut = programs.fOut = value; break;
+		case kHiCut : 	 fHiCut = programs.fHiCut = value; break;
+		case kDecay :	 fDecay = programs.fDecay = value; break;
+		case kBlur :	 fBlur = programs.fBlur = value; break;
 		
 	}
-	if (editor)
-		editor->postUpdate ();
 }
 
 
@@ -210,50 +175,10 @@ void AKnockout::getParameterName(long index, char *label)
 {
 	switch (index)
 	{
-		case kCentre :    strcpy (label, "Extract centre"); break;
-		case kIn :    strcpy (label, "R Input Gain"); break;
-		case kLoCut : strcpy (label, "Lo freq cut"); break;
-		case kOut :      strcpy (label, "Output Gain "); break;
-		case kHiCut : strcpy (label, "Hi freq cut"); break;
-		case kDecay : strcpy(label, "Decay"); break;
-		case kBlur : strcpy(label, "Blur"); break;
+
 	}
 }
 
-//-----------------------------------------------------------------------------------------
-void AKnockout::getParameterDisplay(long index, char *text)
-{
-	switch (index)
-	{
-		case kCentre :   if (fCentre>0.5) strcpy (text, "   On   ");
-						if (fCentre<=0.5) strcpy (text, "   Off   ");	break;
-		case kIn :    dB2string (fIn*4, text); break;
-		case kLoCut : float2string (fLoCut, text);	break;
-		case kOut :      dB2string (fOut*4, text); break;
-		case kHiCut : float2string(fHiCut, text); break;
-		case kDecay : float2string(fDecay, text); break;
-		case kBlur : float2string(int(fBlur*24), text); break;
-	}
-}
-//-----------------------------------------------------------------------------------------
-void AKnockout::getParameterLabel(long index, char *label)
-{
-	switch (index)
-	{
-		case kCentre :   strcpy (label, "        "); 	break;
-		case kIn :		strcpy (label, "   dB   ");	break;		
-		case kLoCut : strcpy (label, " threshold ");	break;
-		case kOut :      strcpy (label, "   dB   ");	break;
-		case kHiCut : strcpy (label, " threshold ");	break;
-		case kDecay : strcpy(label, " amount "); break;
-		case kBlur : strcpy(label, " amount "); break;
-	}
-}
-//-----------------------------------------------------------------------------------------
-void AKnockout::process(float **inputs, float **outputs, long sampleFrames)
-{
-    //no send effect
-}
 
 //-----------------------------------------------------------------------------------------
 void AKnockout::processReplacing(float **inputs, float **outputs, long sampleFrames)
