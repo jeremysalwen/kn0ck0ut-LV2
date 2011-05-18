@@ -121,28 +121,23 @@ void AKnockout::run(uint32_t sampleFrames)
 void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp, float sampleRate, float *indata, float *indata2, float *outdata, long gInit, float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract)
 
 {
-
 	static long gRover=false;
 
-	double freqPerBin, expct;
-	long i,k, qpd, inFifoLatency, stepSize, fftFrameSize2, m;
-	double dOversampbytwopi, dFreqfactor, dOutfactor;
-
 	/* set up some handy variables */
-	fftFrameSize2 = fftFrameSize/2;
-	stepSize = fftFrameSize/osamp;
-	dOversampbytwopi = (double)osamp/PI/2;	
-	freqPerBin = sampleRate/(double)fftFrameSize;
-	dFreqfactor = PI/(double)osamp/freqPerBin*2;
-	dOutfactor = (double)fftFrameSize2*(double)osamp;
+	long fftFrameSize2 = fftFrameSize/2;
+	long stepSize = fftFrameSize/osamp;
+	double dOversampbytwopi = (double)osamp/PI/2;	
+	double freqPerBin = sampleRate/(double)fftFrameSize;
+	double dFreqfactor = PI/(double)osamp/freqPerBin*2;
+	double dOutfactor = (double)fftFrameSize2*(double)osamp;
 	fDecayRate=(fDecayRate>0)*(4.00001-(fDecayRate*fDecayRate*4));
 
-	expct = 2.*PI*(double)stepSize/(double)fftFrameSize;
-	inFifoLatency = fftFrameSize-stepSize;
+	double expct = 2.*PI*(double)stepSize/(double)fftFrameSize;
+	long inFifoLatency = fftFrameSize-stepSize;
 	if (gRover == false) gRover = inFifoLatency;
 
 	/* main processing loop */
-	for (i = 0; i < numSampsToProcess; i++){
+	for (long i = 0; i < numSampsToProcess; i++){
 
 		/* As long as we have not yet collected enough data just read in */
 		gInFIFO[gRover] = indata[i];
@@ -157,7 +152,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 
 
 			/* do windowing and re,im interleave */
-			for (k = 0; k < fftFrameSize;k++) {
+			for (long k = 0; k < fftFrameSize;k++) {
 				gInFIFO[k] *= window[k];
 				gInFIFO2[k] *= window[k];
 			}
@@ -166,7 +161,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			fftwf_execute(forward_sp1);
 
 			/* frequency analysis */
-			for (k = 0; k <= fftFrameSize2; k++) {
+			for (long k = 0; k <= fftFrameSize2; k++) {
 
 				/* de-interlace FFT buffer */
 				double real = gFFTworksp[2*k][0];
@@ -177,7 +172,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 				double phase = atan2(imag,real);
 
 				double tmp = phase-(double)k*expct;
-				qpd = tmp/PI;
+				long qpd = tmp/PI;
 				if (qpd >= 0) qpd += qpd&1;
 				else qpd -= qpd&1;
 				tmp -= PI*(double)qpd;
@@ -196,25 +191,25 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			/* this is the processing section */
 
 			// lo cut
-			for (k = 0; k <= loCut+iBlur; k++) {  
+			for (long k = 0; k <= loCut+iBlur; k++) {  
 				gFFTworksp[2*k][0]=0;
 				gFFTworksp[2*k][1]=0;
 			}
 
 			// hi cut
-			for (k = fftFrameSize2-HiCut-iBlur; k <= fftFrameSize2; k++) {  
+			for (long k = fftFrameSize2-HiCut-iBlur; k <= fftFrameSize2; k++) {  
 				gFFTworksp[2*k][0]=0;
 				gFFTworksp[2*k][1]=0;		
 			}
 
 			/* get R input magnitudes */
 
-			for (k = loCut; k <= fftFrameSize2-HiCut; k++) {
+			for (long k = loCut; k <= fftFrameSize2-HiCut; k++) {
 				gAnaMagn2[k]=(2.*sqrt(gFFTworksp2[2*k][0]*gFFTworksp2[2*k][0] + gFFTworksp2[2*k][1]*gFFTworksp2[2*k][1]));
 			}
 
 
-			for (k = loCut+iBlur; k <= fftFrameSize2-HiCut-iBlur; k++) {
+			for (long k = loCut+iBlur; k <= fftFrameSize2-HiCut-iBlur; k++) {
 
 
 				/* decay control */
@@ -228,7 +223,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 
 				/* spectral blur control */
 
-				for (m=-iBlur; m<iBlur; m++) {
+				for (long m=-iBlur; m<iBlur; m++) {
 					if (gAnaMagn2[k+m]>gDecay[k]) gDecay[k]=gAnaMagn2[k+m];
 				}					   
 
@@ -253,7 +248,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			fftwf_execute(backwards);
 
 			/* do windowing and add to output accumulator */ 
-			for(k=0; k < fftFrameSize; k++) {
+			for(long k=0; k < fftFrameSize; k++) {
 				gOutputAccum[k] += window[k]*gOutputBuffer[k]/(dOutfactor);
 			}
 
