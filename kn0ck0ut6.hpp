@@ -19,19 +19,6 @@ kCentre, kIn, kLoCut, kHiCut, kDecay, kBlur, kOut, kNumParams
 };
 
 
-class AKnockout;
-
-class AKnockoutProgram
-{
-friend class AKnockout;
-public:
-	AKnockoutProgram();
-	~AKnockoutProgram() {}
-private:	
-	float fCentre, fIn, fLoCut,fHiCut, fOut, fDecay, fBlur;
-};
-
-
 class AKnockout:public Plugin<AKnockout> {
 	public:
 	AKnockout(double srate);
@@ -47,11 +34,7 @@ protected:
 	
 	
 private:
-	AKnockoutProgram programs;
-	float *buffer;
-	float fCentre, fIn, fLoCut, fOut, fHiCut, fDecay, fBlur;
-	
-	void do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp, float sampleRate, float *indata, float *indata2, float *outdata, long gInit, float fGain, float fInGain, float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract);
+	void do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp, float sampleRate, float *indata, float *indata2, float *outdata, long gInit, float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract);
 	void makelookup(int fftFrameSize);
 	
 	float* gInFIFO;

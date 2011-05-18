@@ -17,3 +17,10 @@ units:
 		case kHiCut : strcpy (label, " threshold ");	break;
 		case kDecay : strcpy(label, " amount "); break;
 		case kBlur : strcpy(label, " amount "); break;
+		
+		default values: 	fCentre = 0;
+	fIn=0.25;
+	fLoCut = 0;
+	fOut = 0.25;
+	fHiCut = 0;
+	fDecay = 0;

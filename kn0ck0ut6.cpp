@@ -34,24 +34,10 @@ class CQuickTrigInitialize: CQuickTrigConsts {
 
 CQuickTrigInitialize gQuickTrigInitialize;
 
-AKnockoutProgram::AKnockoutProgram ()
-{
-	fCentre = 0;
-	fIn=0.25;
-	fLoCut = 0;
-	fOut = 0.25;
-	fHiCut = 0;
-	fDecay = 0;
-
-}
-
 
 //-----------------------------------------------------------------------------
 AKnockout::AKnockout(double rate) : Plugin<AKnockout>(8)
 {
-		fLoCut = fHiCut = 0;
-
-
 	gInFIFO = new float [MAX_FRAME_LENGTH];
 	gOutFIFO = new float [MAX_FRAME_LENGTH];
 	gFFTworksp = (fftwf_complex*)fftw_malloc(sizeof(fftw_complex) * MAX_FRAME_LENGTH);
@@ -116,23 +102,23 @@ void AKnockout::suspend ()
 void AKnockout::run(uint32_t sampleFrames)
 {
 
-	int loCut = int (fLoCut*128); 
-	int hiCut = int (fHiCut*FFTWINDOW/2);
-	int centre = (fCentre>0.5);
+	int loCut = int (*p(4)*128); 
+	int hiCut = int (*p(5)*FFTWINDOW/2);
+	int centre = (*p(3)>0.5);
 
 	int iOsamp = 8;
 
-	int iBlur = int (fBlur*24);
-
+	int iBlur = int (*p(7)*24);
+	float fDecay= *p(6);
 	// arguments are number of samples to process, fft window size, sample overlap (4-32), input buffer, output buffer, init flag, gain, R input gain, decay, l cut, hi cut
 
-	do_rebuild(sampleFrames, FFTWINDOW, iOsamp, sampleFrames, p(0), p(1), p(2),1, fOut*4, fIn*4, fDecay, iBlur, loCut, hiCut, centre);
+	do_rebuild(sampleFrames, FFTWINDOW, iOsamp, sampleFrames, p(0), p(1), p(2),1, fDecay, iBlur, loCut, hiCut, centre);
 }
 
 // -----------------------------------------------------------------------------------------------------------------
 
 
-void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp, float sampleRate, float *indata, float *indata2, float *outdata, long gInit, float fGain, float fInGain, float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract)
+void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp, float sampleRate, float *indata, float *indata2, float *outdata, long gInit, float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract)
 
 {
 
@@ -160,8 +146,8 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 
 		/* As long as we have not yet collected enough data just read in */
 		gInFIFO[gRover] = indata[i];
-		gInFIFO2[gRover] = (indata2[i]-(indata[i]*centreExtract)) * fInGain; // R input gain factor here
-		outdata[i] = gOutFIFO[gRover-inFifoLatency] * fGain; // output, gain control here
+		gInFIFO2[gRover] = (indata2[i]-(indata[i]*centreExtract)); // R input gain factor here
+		outdata[i] = gOutFIFO[gRover-inFifoLatency]; // output, gain control here
 
 		gRover++;
 
