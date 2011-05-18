@@ -61,7 +61,7 @@ AKnockout::AKnockout(audioMasterCallback audioMaster) : AudioEffectX(audioMaster
 	hasVu ();	
 	setNumInputs(2);		// stereo in
 	setNumOutputs(2);		// mono out but cant tell wavelab that
-	setUniqueID('k0ut');	// identify
+	setUniqueID("k0ut");	// identify
 //	canMono();				// doesn't make sense to feed both inputs with the same signal
 	canProcessReplacing();	// supports only replacing output
 	strcpy(programName, "Default");	// default program name
