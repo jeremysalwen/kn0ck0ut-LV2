@@ -102,13 +102,13 @@ void AKnockout::suspend ()
 void AKnockout::run(uint32_t sampleFrames)
 {
 
-	int loCut = int (*p(4)*128); 
-	int hiCut = int (*p(5)*FFTWINDOW/2);
+	int loCut = int (*p(4)); 
+	int hiCut = int (*p(5) *FFTWINDOW/2);
 	int centre = (*p(3)>0.5);
 
 	int iOsamp = 8;
 
-	int iBlur = int (*p(7)*24);
+	int iBlur = int (*p(7));
 	float fDecay= *p(6);
 	// arguments are number of samples to process, fft window size, sample overlap (4-32), input buffer, output buffer, init flag, gain, R input gain, decay, l cut, hi cut
 
