@@ -101,10 +101,6 @@ void AKnockout::setProgram (long program)
 	setParameter (kBlur, programs.fBlur);
 }
 
-//------------------------------------------------------------------------
-void AKnockout::setDelay (float fdelay)
-{	
-}
 
 //-----------------------------------------------------------------------------------------
 void AKnockout::suspend ()
@@ -118,20 +114,6 @@ void AKnockout::suspend ()
 	memset(gInFIFO2, 0, MAX_FRAME_LENGTH*sizeof(float));
 	memset(gFFTworksp2, 0, 2*MAX_FRAME_LENGTH*sizeof(float));
 	memset(gAnaMagn2, 0, MAX_FRAME_LENGTH*sizeof(float));
-}
-//-----------------------------------------------------------------------------------------
-
-void AKnockout::resume ()
-{
-	return;
-}
-//------------------------------------------------------------------------
-float AKnockout::getVu ()
-{
-	float cvu = vu;
-	
-	vu = 0;
-	return cvu;
 }
 
 //------------------------------------------------------------------------
