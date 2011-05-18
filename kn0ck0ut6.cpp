@@ -138,7 +138,6 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 
 	static long gRover=false;
 
-	double magn, phase, tmp, real, imag;
 	double freqPerBin, expct;
 	long i,k, qpd, inFifoLatency, stepSize, fftFrameSize2, m;
 	double dOversampbytwopi, dFreqfactor, dOutfactor;
@@ -184,14 +183,14 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			for (k = 0; k <= fftFrameSize2; k++) {
 
 				/* de-interlace FFT buffer */
-				real = gFFTworksp[2*k][0];
-				imag = gFFTworksp[2*k][1];
+				double real = gFFTworksp[2*k][0];
+				double imag = gFFTworksp[2*k][1];
 
 				/* compute magnitude and phase */
 				gAnaMagn[k] = 2.*sqrt(real*real + imag*imag);
-				phase = atan2(imag,real);
+				double phase = atan2(imag,real);
 
-				tmp = phase-(double)k*expct;
+				double tmp = phase-(double)k*expct;
 				qpd = tmp/PI;
 				if (qpd >= 0) qpd += qpd&1;
 				else qpd -= qpd&1;
@@ -249,11 +248,11 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 
 				/* this is the 'knockout' process */
 
-				magn = gAnaMagn[k] - gDecay[k]; // subtract right channel magnitudes from left, with decay
+				double magn = gAnaMagn[k] - gDecay[k]; // subtract right channel magnitudes from left, with decay
 				magn = magn * (magn>0); // zero -ve partials
 
 				/* correct the frequency - sm sprenger method */
-				tmp = gAnaFreq[k];
+				double tmp = gAnaFreq[k];
 				tmp -= (double)k*freqPerBin;
 				tmp *= dFreqfactor;
 				tmp += (double)k*expct;
