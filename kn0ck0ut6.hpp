@@ -7,6 +7,7 @@
 #include <fftw3.h>
 #include "float.h"
 #include "QuickTrig.h"
+#include "kn0ck0ut.peg"
 
 
 using namespace LV2;
