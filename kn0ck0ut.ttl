@@ -2,7 +2,7 @@
 @prefix foaf: <http://xmlns.com/foaf/0.1/> .
 @prefix doap: <http://usefulinc.com/ns/doap#> .
 @prefix ev: <http://lv2plug.in/ns/ext/event#>.
-<urn:malte.steiner:plugins:minicomputer> a lv2:Plugin ;
+<urn:St3pan0va.plugins.kn0ck0ut> a lv2:Plugin ;
     doap:name "Kn0ck0ut Vocal Remover" ;
     doap:developer [
       foaf:name "St3pan0va";
