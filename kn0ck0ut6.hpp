@@ -3,8 +3,11 @@
 #ifndef __AGAIN_H
 #define __AGAIN_H
 
+#include <lv2plugin.hpp>
 #include "float.h"
 #include "QuickTrig.h"
+
+using namespace LV2;
 
 #define MAX_FRAME_LENGTH 16384
 
@@ -28,10 +31,9 @@ private:
 };
 
 
-class AKnockout 
-{
-public:
-	AKnockout(audioMasterCallback audioMaster);
+class AKnockout {
+	public:
+	AKnockout();
 	~AKnockout();
 
 	virtual void process(float **inputs, float **outputs, long sampleFrames);
