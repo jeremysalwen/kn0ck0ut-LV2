@@ -1,3 +1,0 @@
-LIBRARY			Kn0ck0ut
-DESCRIPTION		'Kn0ck0ut beta v0.5'
-EXPORTS			main=_main
