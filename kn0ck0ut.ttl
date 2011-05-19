@@ -8,6 +8,7 @@
 
 <urn:St3pan0va.plugins.kn0ck0ut> a lv2:Plugin ;
     doap:name "Kn0ck0ut Vocal Remover" ;
+    lv2:binary <libkn0ck0ut.so>;
     doap:developer [
       foaf:name "St3pan0va";
     ] ;
