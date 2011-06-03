@@ -165,8 +165,8 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			for (long k = 0; k <= fftFrameSize2; k++) {
 
 				/* de-interlace FFT buffer */
-				double real = gFFTworksp[2*k][0];
-				double imag = gFFTworksp[2*k][1];
+				double real = gFFTworksp[k][0];
+				double imag = gFFTworksp[k][1];
 
 				/* compute magnitude and phase */
 				gAnaMagn[k] = 2.*sqrt(real*real + imag*imag);
