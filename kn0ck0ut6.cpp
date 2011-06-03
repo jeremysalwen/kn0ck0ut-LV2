@@ -135,8 +135,9 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 
 	double expct = 2.*PI*(double)stepSize/(double)fftFrameSize;
 	long inFifoLatency = fftFrameSize-stepSize;
-	if (gRover == false) gRover = inFifoLatency;
-
+	if (gRover == false) {
+		gRover = inFifoLatency;
+	}
 	/* main processing loop */
 	for (long i = 0; i < numSampsToProcess; i++){
 
