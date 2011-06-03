@@ -230,7 +230,9 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 				/* spectral blur control */
 
 				for (long m=-iBlur; m<iBlur; m++) {
-					if (gAnaMagn2[k+m]>gDecay[k]) gDecay[k]=gAnaMagn2[k+m];
+					if (gAnaMagn2[k+m]>gDecay[k]) {
+						gDecay[k]=gAnaMagn2[k+m];
+					}
 				}					   
 
 				/* this is the 'knockout' process */
