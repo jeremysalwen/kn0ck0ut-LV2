@@ -1,4 +1,4 @@
-CXXFLAGS+=-fPIC -DPIC `pkg-config lv2core lv2-plugin fftw3f --cflags --libs`
+CXXFLAGS+=-O3 -ffast-math -fPIC -DPIC `pkg-config lv2core lv2-plugin fftw3f --cflags --libs`
 LDFLAGS +=-shared `pkg-config lv2core lv2-plugin fftw3f --libs`
 
 BUNDLE = kn0ck0ut.lv2
