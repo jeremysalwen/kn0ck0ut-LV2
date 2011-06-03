@@ -50,6 +50,7 @@ AKnockout::AKnockout(double rate) : Plugin<AKnockout>(p_n_ports)
 	gFFTworksp2 = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * MAX_FRAME_LENGTH);
 	gAnaMagn2 = new float [MAX_FRAME_LENGTH];
 	gDecay = new float [MAX_FRAME_LENGTH];
+	memset(gDecay,0,MAX_FRAME_LENGTH*sizeof(float));
 	window = new double [FFTWINDOW];
 
 	forward_sp1= fftwf_plan_dft_r2c_1d(FFTWINDOW, gInFIFO , gFFTworksp,
