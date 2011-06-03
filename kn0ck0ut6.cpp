@@ -40,7 +40,7 @@ AKnockout::AKnockout(double rate) : Plugin<AKnockout>(p_n_ports)
 {
 	sampleRate=rate;
 	gInFIFO = new float [MAX_FRAME_LENGTH];
-	gOutFIFO = new float [MAX_FRAME_LENGTH];
+	gOutBuffer = new float [MAX_FRAME_LENGTH];
 	gFFTworksp = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * MAX_FRAME_LENGTH);
 	gOutputBuffer=new float [2*MAX_FRAME_LENGTH];
 	gOutputAccum = new float [2*MAX_FRAME_LENGTH];
@@ -70,7 +70,7 @@ AKnockout::AKnockout(double rate) : Plugin<AKnockout>(p_n_ports)
 AKnockout::~AKnockout() // delete buffers in destructor
 {
 	delete[] gInFIFO;
-	delete[] gOutFIFO;
+	delete[] gOutBuffer;
 	fftwf_free(gFFTworksp);
 	delete[] gOutputAccum;
 	delete[] gOutputBuffer;
@@ -89,7 +89,7 @@ AKnockout::~AKnockout() // delete buffers in destructor
 void AKnockout::suspend ()
 {
 	memset(gInFIFO, 0, MAX_FRAME_LENGTH*sizeof(float));
-	memset(gOutFIFO, 0, MAX_FRAME_LENGTH*sizeof(float));
+	memset(gOutBuffer, 0, MAX_FRAME_LENGTH*sizeof(float));
 	memset(gFFTworksp, 0, 2*MAX_FRAME_LENGTH*sizeof(float));
 	memset(gOutputAccum, 0, 2*MAX_FRAME_LENGTH*sizeof(float));
 	memset(gOutputBuffer, 0, 2*MAX_FRAME_LENGTH*sizeof(float));
@@ -145,7 +145,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 		/* As long as we have not yet collected enough data just read in */
 		gInFIFO[gRover] = indata[i];
 		gInFIFO2[gRover] = (indata2[i]-(indata[i]*centreExtract)); // R input gain factor here
-		outdata[i] = gOutFIFO[gRover-inFifoLatency]; // output, gain control here
+		outdata[i] = gOutBuffer[gRover-inFifoLatency]; // output, gain control here
 
 		gRover++;
 
@@ -266,7 +266,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			}
 
 			/* transfer output accum to output buffer */
-			memmove (gOutFIFO, gOutputAccum, stepSize*sizeof(float));
+			memmove (gOutBuffer, gOutputAccum, stepSize*sizeof(float));
 
 			/* shift accumulator */
 			memmove(gOutputAccum, gOutputAccum+stepSize, fftFrameSize*sizeof(float));

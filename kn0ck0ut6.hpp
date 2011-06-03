@@ -36,7 +36,7 @@ private:
 	void makelookup(int fftFrameSize);
 	
 	float* gInFIFO;
-	float* gOutFIFO;
+	float* gOutBuffer;
 	float* gOutputAccum;
 	float* gOutputBuffer;
 	float* gAnaFreq;
