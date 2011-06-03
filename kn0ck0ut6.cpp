@@ -193,20 +193,20 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 
 			// lo cut
 			for (long k = 0; k <= loCut+iBlur; k++) {  
-				gFFTworksp[2*k][0]=0;
-				gFFTworksp[2*k][1]=0;
+				gFFTworksp[k][0]=0;
+				gFFTworksp[k][1]=0;
 			}
 
 			// hi cut
 			for (long k = fftFrameSize2-HiCut-iBlur; k <= fftFrameSize2; k++) {  
-				gFFTworksp[2*k][0]=0;
-				gFFTworksp[2*k][1]=0;		
+				gFFTworksp[k][0]=0;
+				gFFTworksp[k][1]=0;		
 			}
 
 			/* get R input magnitudes */
 
 			for (long k = loCut; k <= fftFrameSize2-HiCut; k++) {
-				gAnaMagn2[k]=(2.*sqrt(gFFTworksp2[2*k][0]*gFFTworksp2[2*k][0] + gFFTworksp2[2*k][1]*gFFTworksp2[2*k][1]));
+				gAnaMagn2[k]=(2.*sqrt(gFFTworksp2[k][0]*gFFTworksp2[k][0] + gFFTworksp2[k][1]*gFFTworksp2[k][1]));
 			}
 
 
@@ -268,7 +268,38 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 
 // -----------------------------------------------------------------------------------------------------------------
 
-/* make lookup table for window function */
+/* make lookup table for window function
+
+   The windowing function used is a raised cosine.  This has very nice
+ overlapping properties for any even ratio of overlapping.  He actually windows
+ twice, once before analysis, and once after.  Thus the actual window used is
+ the square of this window, i.e. the original window is 0.5 - 0.5*cos, so the
+ square is (0.5-0.5*cos)^2=0.25*(1+cos^2-2*cos).  Now, let us look at the case
+ of the 1/4 overlapping window.  Shifting the window by 1/4, the cosine becomes
+ sine.  Thus we get a total of 0.25*(1+cos^2-2*cos+1+sin^2-2*sin).  The sin^2
+ and cos^2 sum to 1, leaving 0.25*(2-2*sin-2*cos).  However, we have to consider
+ the sum of four consecutive windows, as this is the period by which it will
+ repeat.  Since we have figured out the sum of the first two windows, we can
+ simply shift this sum by 1/2 a window length to get the third and fourth
+ windows.  The sines and cosines are both flipped in sign when we shift them
+ half a period, so the sum is just going to be the sum of the constant parts.
+ That is, it will be 0.25*2 +0.25*2 = 2.  This will be the factor by which we
+ need to scale the windows.  However, if we overlap by some factor which is a
+ multiple of 4, i.e. N*4, we can see that we will have N times as many windows
+ covering the same area, and thus we will need to scale down by a factor of N*2.
+
+	The variables used for this information are:
+	 
+	osamp: The overlapping factor.  Has to be a multiple of 4.
+	
+	stepSize: The number of samples in the overlapping period.
+	
+	freqPerBin: When we take the DFT, each bin represents a pure sine wave of a
+		certain frequency.  Given a bin n, the sine wave frequency will be
+		n*freqPerBin Hertz.
+	
+	
+*/
 
 void AKnockout::makelookup(int fftFrameSize)
 {
