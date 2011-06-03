@@ -41,8 +41,8 @@ AKnockout::AKnockout(double rate) : Plugin<AKnockout>(p_n_ports)
 	sampleRate=rate;
 	gInFIFO = new float [MAX_FRAME_LENGTH];
 	gOutBuffer = new float [MAX_FRAME_LENGTH];
+	FFTRealBuffer=new float[MAX_FRAME_LENGTH];
 	gFFTworksp = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * MAX_FRAME_LENGTH);
-	gOutputBuffer=new float [2*MAX_FRAME_LENGTH];
 	gOutputAccum = new float [2*MAX_FRAME_LENGTH];
 	gAnaFreq = new float [MAX_FRAME_LENGTH];
 	gAnaMagn = new float [MAX_FRAME_LENGTH];
@@ -53,11 +53,11 @@ AKnockout::AKnockout(double rate) : Plugin<AKnockout>(p_n_ports)
 	memset(gDecay,0,MAX_FRAME_LENGTH*sizeof(float));
 	window = new double [FFTWINDOW];
 
-	forward_sp1= fftwf_plan_dft_r2c_1d(FFTWINDOW, gInFIFO , gFFTworksp,
+	forward_sp1= fftwf_plan_dft_r2c_1d(FFTWINDOW, FFTRealBuffer , gFFTworksp,
                                     FFTW_ESTIMATE);
-	forward_sp2= fftwf_plan_dft_r2c_1d(FFTWINDOW, gInFIFO2, gFFTworksp2,
+	forward_sp2= fftwf_plan_dft_r2c_1d(FFTWINDOW,FFTRealBuffer, gFFTworksp2,
                                     FFTW_ESTIMATE);	
-	backwards=fftwf_plan_dft_c2r_1d(FFTWINDOW, gFFTworksp, gOutputBuffer,
+	backwards=fftwf_plan_dft_c2r_1d(FFTWINDOW, gFFTworksp, FFTRealBuffer,
                                     FFTW_ESTIMATE);
 
 	makelookup(FFTWINDOW);
@@ -70,10 +70,10 @@ AKnockout::AKnockout(double rate) : Plugin<AKnockout>(p_n_ports)
 AKnockout::~AKnockout() // delete buffers in destructor
 {
 	delete[] gInFIFO;
+	delete[] FFTRealBuffer;
 	delete[] gOutBuffer;
 	fftwf_free(gFFTworksp);
 	delete[] gOutputAccum;
-	delete[] gOutputBuffer;
 	delete[] gAnaFreq;
 	delete[] gAnaMagn;
 	delete[] gAnaMagn2;
@@ -92,7 +92,6 @@ void AKnockout::suspend ()
 	memset(gOutBuffer, 0, MAX_FRAME_LENGTH*sizeof(float));
 	memset(gFFTworksp, 0, 2*MAX_FRAME_LENGTH*sizeof(float));
 	memset(gOutputAccum, 0, 2*MAX_FRAME_LENGTH*sizeof(float));
-	memset(gOutputBuffer, 0, 2*MAX_FRAME_LENGTH*sizeof(float));
 	memset(gAnaFreq, 0, MAX_FRAME_LENGTH*sizeof(float));
 	memset(gAnaMagn, 0, MAX_FRAME_LENGTH*sizeof(float));
 	memset(gInFIFO2, 0, MAX_FRAME_LENGTH*sizeof(float));
@@ -156,12 +155,17 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 
 			/* do windowing  */
 			for (long k = 0; k < fftFrameSize;k++) {
-				gInFIFO[k] *= window[k];
-				gInFIFO2[k] *= window[k];
+				FFTRealBuffer[k]=gInFIFO[k] * window[k];
 			}
 
 			/* do transform */
 			fftwf_execute(forward_sp1);
+			
+			for (long k = 0; k < fftFrameSize;k++) {
+				FFTRealBuffer[k]=gInFIFO2[k] * window[k];
+			}
+			
+			fftwf_execute(forward_sp2);
 
 			/* frequency analysis */
 			for (long k = 0; k <= fftFrameSize2; k++) {
@@ -186,10 +190,6 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 				gAnaFreq[k] = ((double)k + tmp)*freqPerBin;
 
 			}
-
-			/* do transform */
-			fftwf_execute(forward_sp2);
-
 
 			/* this is the processing section */
 
@@ -262,7 +262,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 
 			/* do windowing and add to output accumulator */ 
 			for(long k=0; k < fftFrameSize; k++) {
-				gOutputAccum[k] += window[k]*gOutputBuffer[k]/(dOutfactor);
+				gOutputAccum[k] += window[k]*FFTRealBuffer[k]/(dOutfactor);
 			}
 
 			/* transfer output accum to output buffer */

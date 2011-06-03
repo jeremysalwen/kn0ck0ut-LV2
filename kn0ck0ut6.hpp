@@ -38,7 +38,7 @@ private:
 	float* gInFIFO;
 	float* gOutBuffer;
 	float* gOutputAccum;
-	float* gOutputBuffer;
+	float* FFTRealBuffer;
 	float* gAnaFreq;
 	float* gAnaMagn;
 	float* gInFIFO2;
