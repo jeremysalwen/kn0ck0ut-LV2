@@ -68,18 +68,18 @@ AKnockout::AKnockout(double rate) : Plugin<AKnockout>(p_n_ports)
 //-----------------------------------------------------------------------------------------
 AKnockout::~AKnockout() // delete buffers in destructor
 {
-	delete gInFIFO;
-	delete gOutFIFO;
+	delete[] gInFIFO;
+	delete[] gOutFIFO;
 	fftwf_free(gFFTworksp);
-	delete gOutputAccum;
-	delete gOutputBuffer;
-	delete gAnaFreq;
-	delete gAnaMagn;
-	delete gAnaMagn2;
-	delete gInFIFO2;
+	delete[] gOutputAccum;
+	delete[] gOutputBuffer;
+	delete[] gAnaFreq;
+	delete[] gAnaMagn;
+	delete[] gAnaMagn2;
+	delete[] gInFIFO2;
 	fftwf_free(gFFTworksp2);
-	delete gDecay;
-	delete window;
+	delete[] gDecay;
+	delete[] window;
 
 }
 
