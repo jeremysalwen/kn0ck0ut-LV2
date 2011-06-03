@@ -206,7 +206,9 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			/* get R input magnitudes */
 
 			for (long k = loCut; k <= fftFrameSize2-HiCut; k++) {
-				gAnaMagn2[k]=(2.*sqrt(gFFTworksp2[k][0]*gFFTworksp2[k][0] + gFFTworksp2[k][1]*gFFTworksp2[k][1]));
+			    float real=gFFTworksp2[k][0];
+			    float imag=gFFTworksp2[k][1];
+				gAnaMagn2[k]=(2.*sqrt(real*real+imag*imag));
 			}
 
 
@@ -215,13 +217,15 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 
 				/* decay control */
 
-				if (gAnaMagn2[k]>gDecay[k]) gDecay[k]=gAnaMagn2[k];
-				else {
+				if (gAnaMagn2[k]>gDecay[k]) {
+					gDecay[k]=gAnaMagn2[k];
+				} else {
 					gDecay[k]=(gDecay[k]-fDecayRate);
 					gDecay[k]=gDecay[k]*(gDecay[k]>1);
 				}
-				if (fDecayRate==0) gDecay[k]=gAnaMagn2[k]; // if decay is off, set this value to right channel magn
-
+				if (fDecayRate==0) {
+					gDecay[k]=gAnaMagn2[k]; // if decay is off, set this value to right channel magn
+				}
 				/* spectral blur control */
 
 				for (long m=-iBlur; m<iBlur; m++) {
@@ -240,8 +244,8 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 				tmp += (double)k*expct;
 
 				/* get real and imag part and re-interleave */
-				gFFTworksp[2*k][0] = magn*myQT.QuickCos(tmp);
-				gFFTworksp[2*k][1] = magn*myQT.QuickSin(tmp);
+				gFFTworksp[k][0] = magn*myQT.QuickCos(tmp);
+				gFFTworksp[k][1] = magn*myQT.QuickSin(tmp);
 
 			} 
 
