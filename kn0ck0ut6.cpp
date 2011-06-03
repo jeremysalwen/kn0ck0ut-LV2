@@ -241,6 +241,10 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 				double magn = gAnaMagn[k] - gDecay[k]; // subtract right channel magnitudes from left, with decay
 				magn = magn * (magn>0); // zero -ve partials
 
+				//(Note by Jeremy): The phase has not been modified at all.
+				//This exactly undoes the transformation of the phase of the left
+				//channel which we did during the analysis phase.
+				
 				/* correct the frequency - sm sprenger method */
 				double tmp = gAnaFreq[k];
 				tmp -= (double)k*freqPerBin;
