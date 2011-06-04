@@ -50,7 +50,6 @@ AKnockout::AKnockout(double rate) : Plugin<AKnockout>(p_n_ports)
 	gFFTworksp2 = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * MAX_FRAME_LENGTH);
 	gAnaMagn2 = new float [MAX_FRAME_LENGTH];
 	gDecay = new float [MAX_FRAME_LENGTH];
-	memset(gDecay,0,MAX_FRAME_LENGTH*sizeof(float));
 	window = new double [FFTWINDOW];
 
 	forward_sp1= fftwf_plan_dft_r2c_1d(FFTWINDOW, FFTRealBuffer , gFFTworksp,
@@ -97,6 +96,7 @@ void AKnockout::suspend ()
 	memset(gInFIFO2, 0, MAX_FRAME_LENGTH*sizeof(float));
 	memset(gFFTworksp2, 0, 2*MAX_FRAME_LENGTH*sizeof(float));
 	memset(gAnaMagn2, 0, MAX_FRAME_LENGTH*sizeof(float));
+	memset(gDecay,0,MAX_FRAME_LENGTH*sizeof(float));
 }
 
 //-----------------------------------------------------------------------------------------
@@ -115,6 +115,34 @@ void AKnockout::run(uint32_t sampleFrames)
 
 	do_rebuild(sampleFrames, FFTWINDOW, iOsamp, sampleRate, p(p_left), p(p_right), p(p_out),1, fDecay, iBlur, loCut, hiCut, centre);
 }
+#define DEFINE_CIRC_COPY(NAME, OUTBUFFER, INBUFFER) \
+	static inline int NAME(unsigned int circularsize,\
+	float * __restrict flat, float * __restrict circular, unsigned int start,\
+	unsigned int length) {\
+		int leftover=start+length-circularsize;\
+		if(leftover>0) {\
+			unsigned int flatindex=0;\
+			for(unsigned int circularindex=start; circularindex<circularsize; circularindex++) {\
+				OUTBUFFER=INBUFFER;\
+				flatindex++;\
+			}\
+			for(unsigned int circularindex=0; circularindex<leftover; circularindex++) {\
+				OUTBUFFER=INBUFFER;\
+				flatindex++;\
+			}\
+			return leftover;\
+		} else {\
+			unsigned int circularindex=start;\
+			for(int flatindex=0; flatindex<length; flatindex++) {\
+				OUTBUFFER=INBUFFER;\
+				circularindex++;\
+			}\
+			return circularindex;\
+		}\
+}
+
+DEFINE_CIRC_COPY(copy_to_circular_buffer,circular[circularindex],flat[flatindex])
+DEFINE_CIRC_COPY(copy_from_circular_buffer,flat[flatindex],circular[circularindex])
 
 // -----------------------------------------------------------------------------------------------------------------
 
