@@ -172,14 +172,9 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 		/* As long as we have not yet collected enough data just read in */
 		gInFIFO[gRover] = indata[i];
 		gInFIFO2[gRover] = (indata2[i]-(indata[i]*centreExtract)); // R input gain factor here
-		outdata[i] = gOutputAccum[outAccumIndex]; // output, gain control here
 
 		gRover++;
-		outAccumIndex++;
-		if(outAccumIndex>fftFrameSize) {
-			outAccumIndex=0;
-		}
-
+		
 		/* now we have enough data for processing */
 		if (gRover >= fftFrameSize) {
 			gRover = inFifoLatency;
@@ -336,6 +331,22 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 				for(long k=lastind; k<outAccumIndex; k++) {
 					gOutputAccum[k] = window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
 					inindex++;
+				}
+			}
+			long max=outAccumIndex+stepSize;
+			long offset=i-outAccumIndex;
+			if(max<fftFrameSize) {
+				for(; outAccumIndex<max; outAccumIndex++ ) {
+					outdata[outAccumIndex+offset]=gOutputAccum[outAccumIndex];
+				}
+			} else {
+				for(; outAccumIndex<fftFrameSize; outAccumIndex++ ) {
+					outdata[outAccumIndex+offset]=gOutputAccum[outAccumIndex];
+				}
+				max-=fftFrameSize;
+				offset+=fftFrameSize;
+				for(outAccumIndex=0; outAccumIndex<max; outAccumIndex++ ) {
+					outdata[outAccumIndex+offset]=gOutputAccum[outAccumIndex];
 				}
 			}
 			memmove (gInFIFO, gInFIFO+stepSize, inFifoLatency*sizeof(float));
