@@ -152,6 +152,15 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 {
 	static long gRover=false;
 	static long outAccumIndex=0;
+	static long copiesremaining=0;
+	
+	if(numSampsToProcess<copiesremaining) {
+		outAccumIndex=copy_from_circular_buffer(fftFrameSize,outdata,gOutputAccum,outAccumIndex,numSampsToProcess);
+		copiesremaining-=numSampsToProcess;
+	} else {
+		outAccumIndex=copy_from_circular_buffer(fftFrameSize,outdata,gOutputAccum,outAccumIndex,copiesremaining);
+		copiesremaining=0;
+	}
 	/* set up some handy variables */
 	long fftFrameSize2 = fftFrameSize/2;
 	long stepSize = fftFrameSize/osamp;
@@ -167,7 +176,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 		gRover = inFifoLatency;
 	}
 	/* main processing loop */
-	for (long i = 0; i < numSampsToProcess; i++){
+	for (long i=0; i < numSampsToProcess; i++){
 
 		/* As long as we have not yet collected enough data just read in */
 		gInFIFO[gRover] = indata[i];
@@ -333,22 +342,16 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 					inindex++;
 				}
 			}
-			long max=outAccumIndex+stepSize;
-			long offset=i-outAccumIndex;
-			if(max<fftFrameSize) {
-				for(; outAccumIndex<max; outAccumIndex++ ) {
-					outdata[outAccumIndex+offset]=gOutputAccum[outAccumIndex];
-				}
-			} else {
-				for(; outAccumIndex<fftFrameSize; outAccumIndex++ ) {
-					outdata[outAccumIndex+offset]=gOutputAccum[outAccumIndex];
-				}
-				max-=fftFrameSize;
-				offset+=fftFrameSize;
-				for(outAccumIndex=0; outAccumIndex<max; outAccumIndex++ ) {
-					outdata[outAccumIndex+offset]=gOutputAccum[outAccumIndex];
-				}
+			//We output as much of the buffer as we can now, and use copiesremaining to notify later run() calls to empty the
+			//rest of the buffer when it can.
+			long numcopy=stepSize;
+			if(numcopy>(numSampsToProcess-i-1)) {
+				numcopy=numSampsToProcess-i-1;
+				copiesremaining=stepSize-numcopy;
+				copiesremaining*=(copiesremaining>0);
 			}
+			outAccumIndex=copy_from_circular_buffer(fftFrameSize,(outdata+i),gOutputAccum,outAccumIndex,numcopy);
+			
 			memmove (gInFIFO, gInFIFO+stepSize, inFifoLatency*sizeof(float));
 			memmove (gInFIFO2, gInFIFO2+stepSize, inFifoLatency*sizeof(float));
 
