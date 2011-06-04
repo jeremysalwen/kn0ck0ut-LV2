@@ -151,7 +151,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 
 {
 	static long gRover=false;
-
+	static long outAccumIndex=0;
 	/* set up some handy variables */
 	long fftFrameSize2 = fftFrameSize/2;
 	long stepSize = fftFrameSize/osamp;
@@ -172,9 +172,13 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 		/* As long as we have not yet collected enough data just read in */
 		gInFIFO[gRover] = indata[i];
 		gInFIFO2[gRover] = (indata2[i]-(indata[i]*centreExtract)); // R input gain factor here
-		outdata[i] = gOutBuffer[gRover-inFifoLatency]; // output, gain control here
+		outdata[i] = gOutputAccum[outAccumIndex]; // output, gain control here
 
 		gRover++;
+		outAccumIndex++;
+		if(outAccumIndex>fftFrameSize) {
+			outAccumIndex=0;
+		}
 
 		/* now we have enough data for processing */
 		if (gRover >= fftFrameSize) {
@@ -288,17 +292,52 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			/* do inverse transform */
 			fftwf_execute(backwards);
 
+			long inindex=0;
 			/* do windowing and add to output accumulator */ 
-			for(long k=0; k < fftFrameSize; k++) {
-				gOutputAccum[k] += window[k]*FFTRealBuffer[k]/(dOutfactor);
+			
+			/*
+			 *	For this step, we observe that gOutputAccum is a circular buffer
+			 *  of size fftFrameSize.  The previous stepSize frames of data we
+			 *  can discard, since it was just written out.  However, the remaining
+			 *  Data we want to accumulate to.  Thus, we add to the next fftFrameSize - stepSize
+			 *  frames of data, and overwrite the last stepSize frames.  However,
+			 *  This is a little more complicated because we have to wrap around the circular buffers.
+			*/
+			long lastind=outAccumIndex-stepSize;
+			if(lastind<0) {
+				lastind+=fftFrameSize;
+				//Fill up the part which we are still adding to.
+				for(long k=outAccumIndex; k < lastind; k++) {
+					gOutputAccum[k] += window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+					inindex++;
+				}
+				//start to overwrite the old data at the end of the buffer.
+				for(long k=lastind; k<fftFrameSize; k++) {
+					gOutputAccum[k] = window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+					inindex++;
+				}
+				//finish overwriting the remaining data at the wraparound.
+				for(long k=0; k<outAccumIndex; k++) {
+					gOutputAccum[k] = window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+					inindex++;
+				}
+			} else {
+				//Start accumulating at the end of the buffer.
+				for(long k=outAccumIndex; k < fftFrameSize; k++) {
+					gOutputAccum[k] += window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+					inindex++;
+				}
+				//continue accumulating at the beginning.
+				for(long k=0; k < lastind; k++) {
+					gOutputAccum[k] += window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+					inindex++;
+				}
+				//overwrite the last bit of the data.
+				for(long k=lastind; k<outAccumIndex; k++) {
+					gOutputAccum[k] = window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+					inindex++;
+				}
 			}
-
-			/* transfer output accum to output buffer */
-			memmove (gOutBuffer, gOutputAccum, stepSize*sizeof(float));
-
-			/* shift accumulator */
-			memmove(gOutputAccum, gOutputAccum+stepSize, fftFrameSize*sizeof(float));
-
 			memmove (gInFIFO, gInFIFO+stepSize, inFifoLatency*sizeof(float));
 			memmove (gInFIFO2, gInFIFO2+stepSize, inFifoLatency*sizeof(float));
 
