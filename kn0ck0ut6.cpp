@@ -152,6 +152,9 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 {
 	static long gRover=false;
 	static long outAccumIndex=0;
+	static long copiesremaining=0;
+	outAccumIndex=copy_from_circular_buffer(fftFrameSize,outdata,gOutputAccum,outAccumIndex,copiesremaining);
+	
 	/* set up some handy variables */
 	long fftFrameSize2 = fftFrameSize/2;
 	long stepSize = fftFrameSize/osamp;
@@ -333,22 +336,12 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 					inindex++;
 				}
 			}
-			long max=outAccumIndex+stepSize;
-			long offset=i-outAccumIndex;
-			if(max<fftFrameSize) {
-				for(; outAccumIndex<max; outAccumIndex++ ) {
-					outdata[outAccumIndex+offset]=gOutputAccum[outAccumIndex];
-				}
-			} else {
-				for(; outAccumIndex<fftFrameSize; outAccumIndex++ ) {
-					outdata[outAccumIndex+offset]=gOutputAccum[outAccumIndex];
-				}
-				max-=fftFrameSize;
-				offset+=fftFrameSize;
-				for(outAccumIndex=0; outAccumIndex<max; outAccumIndex++ ) {
-					outdata[outAccumIndex+offset]=gOutputAccum[outAccumIndex];
-				}
+			long numcopy=stepSize;
+			if(numcopy>numSampsToProcess-i) {
+				numcopy=numSampsToProcess-i;
+				copiesremaining=stepSize-numcopy;
 			}
+			outAccumIndex=copy_from_circular_buffer(fftFrameSize,outdata,gOutputAccum,outAccumIndex,numcopy);
 			memmove (gInFIFO, gInFIFO+stepSize, inFifoLatency*sizeof(float));
 			memmove (gInFIFO2, gInFIFO2+stepSize, inFifoLatency*sizeof(float));
 
