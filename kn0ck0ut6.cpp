@@ -39,36 +39,46 @@ CQuickTrigInitialize gQuickTrigInitialize;
 AKnockout::AKnockout(double rate) : Plugin<AKnockout>(p_n_ports)
 {
 	sampleRate=rate;
-	gInFIFO = new float [MAX_FRAME_LENGTH];
-	FFTRealBuffer=new float[MAX_FRAME_LENGTH];
-	gFFTworksp = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * MAX_FRAME_LENGTH);
-	gOutputAccum = new float [2*MAX_FRAME_LENGTH];
-	gAnaFreq = new float [MAX_FRAME_LENGTH];
-	gAnaMagn = new float [MAX_FRAME_LENGTH];
-	gInFIFO2 = new float [MAX_FRAME_LENGTH];
-	gFFTworksp2 = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * MAX_FRAME_LENGTH);
-	gAnaMagn2 = new float [MAX_FRAME_LENGTH];
-	gDecay = new float [MAX_FRAME_LENGTH];
-	window = new float [FFTWINDOW];
-
-	forward_sp1= fftwf_plan_dft_r2c_1d(FFTWINDOW, FFTRealBuffer , gFFTworksp,
-                                    FFTW_ESTIMATE);
-	forward_sp2= fftwf_plan_dft_r2c_1d(FFTWINDOW,FFTRealBuffer, gFFTworksp2,
-                                    FFTW_ESTIMATE);	
-	backwards=fftwf_plan_dft_c2r_1d(FFTWINDOW, gFFTworksp, FFTRealBuffer,
-                                    FFTW_ESTIMATE);
-
-	makelookup(FFTWINDOW);
-
-	suspend ();		// flush buffer
+	gfftSize=8192;
+	goverlap=8;
+	AllocateNewBuffers(gfftSize);
 
 }
 
 //-----------------------------------------------------------------------------------------
 AKnockout::~AKnockout() // delete buffers in destructor
 {
+	FreeOldBuffers();
+}
+
+void AKnockout::AllocateNewBuffers(unsigned int fftSize) {
+	unsigned int fftSize2=fftSize/2+1;
+	gInFIFO = new float [fftSize];
+	FFTRealBuffer=(float*)fftwf_malloc(sizeof(float)*fftSize);
+	gFFTworksp = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * fftSize2);
+	gOutputAccum = new float [fftSize];
+	gAnaFreq = new float [fftSize2];
+	gAnaMagn = new float [fftSize2];
+	gInFIFO2 = new float [fftSize];
+	gFFTworksp2 = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * fftSize2);
+	gAnaMagn2 = new float [fftSize2];
+	gDecay = new float [fftSize2];
+	window = new float [fftSize];
+
+	forward_sp1= fftwf_plan_dft_r2c_1d(fftSize, FFTRealBuffer , gFFTworksp,
+                                    FFTW_ESTIMATE);
+	forward_sp2= fftwf_plan_dft_r2c_1d(fftSize,FFTRealBuffer, gFFTworksp2,
+                                    FFTW_ESTIMATE);	
+	backwards=fftwf_plan_dft_c2r_1d(fftSize, gFFTworksp, FFTRealBuffer,
+                                    FFTW_ESTIMATE);
+
+	makelookup(fftSize);
+
+	suspend ();		// flush buffer
+}
+void AKnockout::FreeOldBuffers() {
 	delete[] gInFIFO;
-	delete[] FFTRealBuffer;
+	fftwf_free(FFTRealBuffer);
 	fftwf_free(gFFTworksp);
 	delete[] gOutputAccum;
 	delete[] gAnaFreq;
@@ -78,39 +88,93 @@ AKnockout::~AKnockout() // delete buffers in destructor
 	fftwf_free(gFFTworksp2);
 	delete[] gDecay;
 	delete[] window;
-
 }
 
 
 //-----------------------------------------------------------------------------------------
 void AKnockout::suspend ()
 {
-	memset(gInFIFO, 0, MAX_FRAME_LENGTH*sizeof(float));
-	memset(gFFTworksp, 0, 2*MAX_FRAME_LENGTH*sizeof(float));
-	memset(gOutputAccum, 0, 2*MAX_FRAME_LENGTH*sizeof(float));
-	memset(gAnaFreq, 0, MAX_FRAME_LENGTH*sizeof(float));
-	memset(gAnaMagn, 0, MAX_FRAME_LENGTH*sizeof(float));
-	memset(gInFIFO2, 0, MAX_FRAME_LENGTH*sizeof(float));
-	memset(gFFTworksp2, 0, 2*MAX_FRAME_LENGTH*sizeof(float));
-	memset(gAnaMagn2, 0, MAX_FRAME_LENGTH*sizeof(float));
-	memset(gDecay,0,MAX_FRAME_LENGTH*sizeof(float));
+	unsigned int fftSize=gfftSize;
+	unsigned int fftSize2=fftSize/2+1;
+	memset(gInFIFO, 0, fftSize*sizeof(float));
+	memset(gFFTworksp, 0, fftSize2*sizeof(fftwf_complex));
+	memset(gOutputAccum, 0, fftSize*sizeof(float));
+	memset(gAnaFreq, 0, fftSize2*sizeof(float));
+	memset(gAnaMagn, 0, fftSize2*sizeof(float));
+	memset(gInFIFO2, 0, fftSize*sizeof(float));
+	memset(gFFTworksp2, 0, fftSize2*sizeof(fftwf_complex));
+	memset(gAnaMagn2, 0, fftSize2*sizeof(float));
+	memset(gDecay,0,fftSize2*sizeof(float));
+}
+//assumes desired and fftsize are multiples of 4.
+int calcOsampFromFFTSize(unsigned long desired, unsigned long fftsize) {
+	if(fftsize%desired==0) {
+		return desired;
+	}
+	if(desired>fftsize) {
+		return fftsize;
+	}
+	if(desired<4) {
+		return 4;
+	}
+	unsigned int i;
+	for(i=desired; fftsize%i!=0; i++);
+	if(i==fftsize) {
+		for(i=desired; fftsize%i!=0; i--);
+	}
+	return i;
 }
 
+unsigned long findBestFFTSize(unsigned long desired) {
+	//Next highest multiple of four.
+	unsigned long lastbits=desired & 0x0000000000000003;
+	if(lastbits) {
+		return ((desired >>2)+1)<<2;
+	} else {
+		return desired;
+	}
+}
+#define CLAMP_PORT(TYPE, VAR,PORT_SYMBOL)\
+	TYPE VAR = (TYPE) (*p(PORT_SYMBOL));\
+	if(VAR<p_ports[PORT_SYMBOL].min) {\
+		VAR = p_ports[PORT_SYMBOL].min;\
+	}\
+	if(VAR>p_ports[PORT_SYMBOL].max) {\
+		VAR = p_ports[PORT_SYMBOL].max;\
+	}\
 //-----------------------------------------------------------------------------------------
 void AKnockout::run(uint32_t sampleFrames)
 {
+	CLAMP_PORT(int,loCut,p_lowcut)
+	
 
-	int loCut = int (*p(p_lowcut)); 
-	int hiCut = int (*p(p_highcut) *FFTWINDOW/2);
 	int centre = (*p(p_mode)>0);
 
-	int iOsamp = 8;
+	//Fill in fft size here.
+	
+	int hiCut = int (*p(p_highcut) *gfftSize/2);
+	if(hiCut<p_ports[p_highcut].min) {
+		hiCut=p_ports[p_highcut].min;
+	}
+	if(hiCut>p_ports[p_highcut].max) {
+		hiCut=p_ports[p_highcut].max;
+	}
+	CLAMP_PORT(long,windowsize,p_windowsize)
+	unsigned long newwin=findBestFFTSize((unsigned long)windowsize);
+	if(newwin!=gfftSize) {
+		gfftSize=newwin;
+		FreeOldBuffers();
+		AllocateNewBuffers(newwin);
+	}
+	unsigned int iOsamp = 4*((unsigned int)(*p(p_overlapf)));
 
-	int iBlur = int (*p(p_blur));
-	float fDecay= *p(p_decay);
+	goverlap=calcOsampFromFFTSize(iOsamp,gfftSize);
+	
+	CLAMP_PORT(int,iBlur,p_blur)
+	CLAMP_PORT(float,fDecay,p_decay)
 	// arguments are number of samples to process, fft window size, sample overlap (4-32), input buffer, output buffer, init flag, gain, R input gain, decay, l cut, hi cut
 
-	do_rebuild(sampleFrames, FFTWINDOW, iOsamp, sampleRate, p(p_left), p(p_right), p(p_out),1, fDecay, iBlur, loCut, hiCut, centre);
+	do_rebuild(sampleFrames, gfftSize, goverlap, sampleRate, p(p_left), p(p_right), p(p_out), fDecay, iBlur, loCut, hiCut, centre);
 }
 #define DEFINE_CIRC_COPY(NAME, OUTBUFFER, INBUFFER) \
 	static inline int NAME(int circularsize,\
@@ -140,7 +204,7 @@ void AKnockout::run(uint32_t sampleFrames)
 DEFINE_CIRC_COPY(copy_to_circular_buffer,circular[circularindex],flat[flatindex])
 DEFINE_CIRC_COPY(copy_from_circular_buffer,flat[flatindex],circular[circularindex])
 
-DEFINE_CIRC_COPY(copy_to_circular_buffer_extractcentre,circular[circularindex],flat[flatindex]-window[circularindex])
+DEFINE_CIRC_COPY(copy_to_circular_buffer_extractcentre,circular[circularindex],flat[flatindex]-window[flatindex])
 DEFINE_CIRC_COPY(copy_from_circular_buffer_window,flat[flatindex],circular[circularindex]*window[flatindex])
 
 #define COPY_TO_FIFOS(amount)\
@@ -196,7 +260,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 		outdata+=numpro;
 	}
 
-	while(numSampsToProcess>samples_needed_in_buffer) {
+	while(numSampsToProcess>=samples_needed_in_buffer) {
 		
 		COPY_TO_FIFOS(samples_needed_in_buffer)
 		
@@ -221,10 +285,8 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			double phase = atan2(imag,real);
 
 			double tmp = phase-(double)k*expct;
-			long qpd = tmp/PI;
-			if (qpd >= 0) qpd += qpd&1;
-			else qpd -= qpd&1;
-			tmp -= PI*(double)qpd;
+			long qpd = tmp/(2*PI);
+			tmp -= 2*PI*(double)qpd;
 			tmp *= dOversampbytwopi;
 
 			/* store frequency in analysis array */
@@ -399,7 +461,6 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 	freqPerBin: When we take the DFT, each bin represents a pure sine wave of a
 		certain frequency.  Given a bin n, the sine wave frequency will be
 		n*freqPerBin Hertz.
-	
 	
 */
 

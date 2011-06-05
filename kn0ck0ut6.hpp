@@ -25,9 +25,13 @@ class AKnockout:public Plugin<AKnockout> {
 	
 	
 private:
+	void AllocateNewBuffers(unsigned int fftsize);
+	void FreeOldBuffers();
+	unsigned int goverlap;
+	unsigned int gfftSize;
 	double sampleRate;
 	
-	void do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp, float sampleRate, float *indata, float *indata2, float *outdata, long gInit, float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract);
+	void do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp, float sampleRate, float *indata, float *indata2, float *outdata, float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract);
 	void makelookup(int fftFrameSize);
 	
 	float*  __restrict gInFIFO ;
