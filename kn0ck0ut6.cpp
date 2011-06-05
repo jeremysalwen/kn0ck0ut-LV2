@@ -155,7 +155,7 @@ if(centreExtract>0) {\
 
 
 void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp,
-		float sampleRate, float *indata, float *indata2, float *outdata, long gInit,
+		float sampleRate, float *indata, float *indata2, float *outdata,
 		float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract) {
 	//Declare these new local variables, so the compiler knows none of them are aliased.
 	float*  __restrict__ tInFIFO=gInFIFO;

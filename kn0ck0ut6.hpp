@@ -23,11 +23,6 @@ class AKnockout:public Plugin<AKnockout> {
 	void suspend();
 	CQuickTrig myQT;
 	
-protected:
-	float fGain;
-	char programName[32];
-	
-	
 	
 private:
 	double sampleRate;
@@ -44,8 +39,6 @@ private:
 	float* __restrict gAnaMagn2;
 	float* __restrict gDecay;
 	float* __restrict window;
-	static long gRoverS;
-	long gInit;
 
 	
 	fftwf_complex * gFFTworksp2;
