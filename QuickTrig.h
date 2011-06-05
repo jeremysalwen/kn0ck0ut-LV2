@@ -61,8 +61,19 @@ public:
     {
         return QuickCosQ((int)(dAngle*(kMsTableSize*kLsTableSize/(2*PI))) );
     }
+	inline void QuickSinCos(double dAngle,float * cos, float* sin) const // Returns cos with 20 bits of precision.
+    {
+        return QuickSinCosQ((int)(dAngle*(kMsTableSize*kLsTableSize/(2*PI))),cos,sin );
+    }
 
-
+	inline void QuickSinCosQ(int nIndex, float* cos, float*sin) const {
+	 // Based on the identity sin(u+v) = sinu cosv + cosu sinv
+	    // based on the identity cos(u+v) = cosu cosv + sinu sinv
+        TSinCos *pscu = mMsBitsTable +( (nIndex >> kLSBits) & (kMsTableSize-1));
+        TSinCos *pscv = mLsBitsTable + ( (nIndex) & (kLsTableSize-1));
+        *cos= pscu->mcos * pscv->mcos - pscu->msin * pscv->msin;
+        *sin= pscu->msin * pscv->mcos + pscu->mcos * pscv->msin;
+	}
 
 
 };

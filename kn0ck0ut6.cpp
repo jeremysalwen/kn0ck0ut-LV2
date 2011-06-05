@@ -369,8 +369,9 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			tmp += (double)k*expct;
 
 			/* get real and imag part and re-interleave */
-			gFFTworksp[k][0] = magn*myQT.QuickCos(tmp);
-			gFFTworksp[k][1] = magn*myQT.QuickSin(tmp);
+			myQT.QuickSinCos(tmp,gFFTworksp[k],gFFTworksp[k]+1);
+			gFFTworksp[k][0] *=magn;
+			gFFTworksp[k][1] *=magn;
 
 		} 
 
