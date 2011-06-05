@@ -42,6 +42,10 @@ private:
 	float* __restrict gDecay;
 	float* __restrict window;
 
+	long gRover;
+	long samples_needed_in_buffer;
+	long outAccumIndex;
+	long copiesremaining;
 	
 	fftwf_complex * gFFTworksp2;
 	fftwf_complex * gFFTworksp;

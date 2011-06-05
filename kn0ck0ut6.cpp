@@ -41,7 +41,7 @@ AKnockout::AKnockout(double rate) : Plugin<AKnockout>(p_n_ports)
 	gfftSize=8192;
 	goverlap=8;
 	AllocateNewBuffers(gfftSize);
-
+	clearBuffers();
 }
 
 //-----------------------------------------------------------------------------------------
@@ -72,8 +72,6 @@ void AKnockout::AllocateNewBuffers(unsigned int fftSize) {
                                     FFTW_ESTIMATE);
 
 	makelookup(fftSize);
-
-	clearBuffers ();		// flush buffer
 }
 void AKnockout::FreeOldBuffers() {
 	delete[] gInFIFO;
@@ -104,6 +102,12 @@ void AKnockout::clearBuffers()
 	memset(gFFTworksp2, 0, fftSize2*sizeof(fftwf_complex));
 	memset(gAnaMagn2, 0, fftSize2*sizeof(float));
 	memset(gDecay,0,fftSize2*sizeof(float));
+	
+	long stepSize=fftSize/goverlap;
+	gRover=0;
+	samples_needed_in_buffer=stepSize;
+	outAccumIndex=stepSize;
+	copiesremaining=0;
 }
 //assumes desired and fftsize are multiples of 4.
 int calcOsampFromFFTSize(unsigned long desired, unsigned long fftsize) {
@@ -160,15 +164,23 @@ void AKnockout::run(uint32_t sampleFrames)
 	}
 	CLAMP_PORT(long,windowsize,p_windowsize)
 	unsigned long newwin=findBestFFTSize((unsigned long)windowsize);
+	bool resetbuffers=false;
 	if(newwin!=gfftSize) {
 		gfftSize=newwin;
 		FreeOldBuffers();
 		AllocateNewBuffers(newwin);
+		resetbuffers=true;
 	}
 	unsigned int iOsamp = 4*((unsigned int)(*p(p_overlapf)));
 
-	goverlap=calcOsampFromFFTSize(iOsamp,gfftSize);
-	
+	iOsamp=calcOsampFromFFTSize(iOsamp,gfftSize);
+	if(iOsamp!=goverlap) {
+		goverlap=iOsamp;
+		resetbuffers=true;
+	}
+	if(resetbuffers) {
+		clearBuffers();
+	}
 	CLAMP_PORT(int,iBlur,p_blur)
 	CLAMP_PORT(float,fDecay,p_decay)
 	// arguments are number of samples to process, fft window size, sample overlap (4-32), input buffer, output buffer, init flag, gain, R input gain, decay, l cut, hi cut
@@ -234,19 +246,13 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 	/* set up some handy variables */
 	long fftFrameSize2 = fftFrameSize/2;
 	long stepSize = fftFrameSize/osamp;
-	double dOversampbytwopi = (double)osamp/PI/2;	
+	double dOversampbytwopi = (double)osamp/(PI*2);	
 	double freqPerBin = sampleRate/(double)fftFrameSize;
 	double dFreqfactor = PI/(double)osamp/freqPerBin*2;
 	double dOutfactor = (double)fftFrameSize2*(double)osamp;
 	fDecayRate=(fDecayRate>0)*(4.00001-(fDecayRate*fDecayRate*4));
 
 	double expct = 2.*PI*(double)stepSize/(double)fftFrameSize;
-
-
-	static long gRover=0;
-	static long samples_needed_in_buffer=stepSize;
-	static long outAccumIndex=stepSize;
-	static long copiesremaining=0;
 	{
 		int numpro=copiesremaining;
 		if(numSampsToProcess<copiesremaining) {
@@ -284,8 +290,14 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			double phase = atan2(imag,real);
 
 			double tmp = phase-(double)k*expct;
+			tmp+=PI;
+			//now bring into range [0, 2*pi)
 			long qpd = tmp/(2*PI);
 			tmp -= 2*PI*(double)qpd;
+			tmp+=2*PI*(tmp<0);
+			//return to [-pi,pi)
+			tmp-=PI;
+			//Multiply by factor of Oversampbytwopi
 			tmp *= dOversampbytwopi;
 
 			/* store frequency in analysis array */
