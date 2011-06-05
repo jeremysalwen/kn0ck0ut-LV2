@@ -2,7 +2,7 @@
 // Placed into the public domain. 
 // All uses permitted without attribution.
 
-#include "SfxxRound.h"
+#define PI 3.141592653589793238462643383279502
 
 struct TSinCos { 
     float msin, mcos;
@@ -35,9 +35,8 @@ protected:
     
 };
 
-
 class CQuickTrig
-: public CImplementsRounding , public CQuickTrigConsts 
+: public CQuickTrigConsts 
 {
 public:
 
@@ -49,7 +48,7 @@ public:
     };
     inline double QuickSin(double dAngle) const // Returns sin with 20 bits of precision.
     {
-        return QuickSinQ(Round(dAngle*(kMsTableSize*kLsTableSize/(2*PI))) );
+        return QuickSinQ((int)(dAngle*(kMsTableSize*kLsTableSize/(2*PI))) );
     }
     inline double QuickCosQ(int nIndex) const {
         // based on the identity cos(u+v) = cosu cosv + sinu sinv
@@ -60,7 +59,7 @@ public:
 
     inline double QuickCos(double dAngle) const // Returns cos with 20 bits of precision.
     {
-        return QuickCosQ(Round(dAngle*(kMsTableSize*kLsTableSize/(2*PI))) );
+        return QuickCosQ((int)(dAngle*(kMsTableSize*kLsTableSize/(2*PI))) );
     }
 
 
