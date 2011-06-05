@@ -35,17 +35,16 @@ private:
 	void do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp, float sampleRate, float *indata, float *indata2, float *outdata, long gInit, float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract);
 	void makelookup(int fftFrameSize);
 	
-	float* gInFIFO;
-	float* gOutBuffer;
-	float* gOutputAccum;
-	float* FFTRealBuffer;
-	float* gAnaFreq;
-	float* gAnaMagn;
-	float* gInFIFO2;
-	float* gAnaMagn2;
-	float* gDecay;
-	double* window;
-	static long gRover;
+	float*  __restrict gInFIFO ;
+	float* __restrict gOutputAccum;
+	float* __restrict FFTRealBuffer;
+	float* __restrict gAnaFreq;
+	float* __restrict gAnaMagn;
+	float* __restrict gInFIFO2;
+	float* __restrict gAnaMagn2;
+	float* __restrict gDecay;
+	float* __restrict window;
+	static long gRoverS;
 	long gInit;
 
 	

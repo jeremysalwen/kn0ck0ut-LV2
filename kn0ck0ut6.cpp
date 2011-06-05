@@ -40,7 +40,6 @@ AKnockout::AKnockout(double rate) : Plugin<AKnockout>(p_n_ports)
 {
 	sampleRate=rate;
 	gInFIFO = new float [MAX_FRAME_LENGTH];
-	gOutBuffer = new float [MAX_FRAME_LENGTH];
 	FFTRealBuffer=new float[MAX_FRAME_LENGTH];
 	gFFTworksp = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * MAX_FRAME_LENGTH);
 	gOutputAccum = new float [2*MAX_FRAME_LENGTH];
@@ -50,7 +49,7 @@ AKnockout::AKnockout(double rate) : Plugin<AKnockout>(p_n_ports)
 	gFFTworksp2 = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * MAX_FRAME_LENGTH);
 	gAnaMagn2 = new float [MAX_FRAME_LENGTH];
 	gDecay = new float [MAX_FRAME_LENGTH];
-	window = new double [FFTWINDOW];
+	window = new float [FFTWINDOW];
 
 	forward_sp1= fftwf_plan_dft_r2c_1d(FFTWINDOW, FFTRealBuffer , gFFTworksp,
                                     FFTW_ESTIMATE);
@@ -70,7 +69,6 @@ AKnockout::~AKnockout() // delete buffers in destructor
 {
 	delete[] gInFIFO;
 	delete[] FFTRealBuffer;
-	delete[] gOutBuffer;
 	fftwf_free(gFFTworksp);
 	delete[] gOutputAccum;
 	delete[] gAnaFreq;
@@ -88,7 +86,6 @@ AKnockout::~AKnockout() // delete buffers in destructor
 void AKnockout::suspend ()
 {
 	memset(gInFIFO, 0, MAX_FRAME_LENGTH*sizeof(float));
-	memset(gOutBuffer, 0, MAX_FRAME_LENGTH*sizeof(float));
 	memset(gFFTworksp, 0, 2*MAX_FRAME_LENGTH*sizeof(float));
 	memset(gOutputAccum, 0, 2*MAX_FRAME_LENGTH*sizeof(float));
 	memset(gAnaFreq, 0, MAX_FRAME_LENGTH*sizeof(float));
@@ -116,51 +113,61 @@ void AKnockout::run(uint32_t sampleFrames)
 	do_rebuild(sampleFrames, FFTWINDOW, iOsamp, sampleRate, p(p_left), p(p_right), p(p_out),1, fDecay, iBlur, loCut, hiCut, centre);
 }
 #define DEFINE_CIRC_COPY(NAME, OUTBUFFER, INBUFFER) \
-	static inline int NAME(unsigned int circularsize,\
-	float * __restrict flat, float * __restrict circular, unsigned int start,\
-	unsigned int length) {\
+	static inline int NAME(int circularsize,\
+	float *  flat,\
+	float *  circular,\
+	int start,	int length,\
+	float* __restrict window) {\
 		int leftover=start+length-circularsize;\
 		if(leftover>0) {\
-			unsigned int flatindex=0;\
-			for(unsigned int circularindex=start; circularindex<circularsize; circularindex++) {\
+			for(int circularindex=start; circularindex<circularsize; circularindex++) {\
+				int flatindex=circularindex-start;\
 				OUTBUFFER=INBUFFER;\
-				flatindex++;\
 			}\
-			for(unsigned int circularindex=0; circularindex<leftover; circularindex++) {\
+			for(int circularindex=0; circularindex<leftover; circularindex++) {\
+				int flatindex=circularindex+(circularsize-start);\
 				OUTBUFFER=INBUFFER;\
-				flatindex++;\
 			}\
 			return leftover;\
 		} else {\
-			unsigned int circularindex=start;\
 			for(int flatindex=0; flatindex<length; flatindex++) {\
+				int circularindex=flatindex+start;\
 				OUTBUFFER=INBUFFER;\
-				circularindex++;\
 			}\
-			return circularindex;\
+			return length+start;\
 		}\
 }
-
 DEFINE_CIRC_COPY(copy_to_circular_buffer,circular[circularindex],flat[flatindex])
 DEFINE_CIRC_COPY(copy_from_circular_buffer,flat[flatindex],circular[circularindex])
 
+DEFINE_CIRC_COPY(copy_to_circular_buffer_extractcentre,circular[circularindex],flat[flatindex]-window[circularindex])
+DEFINE_CIRC_COPY(copy_from_circular_buffer_window,flat[flatindex],circular[circularindex]*window[flatindex])
+
+#define COPY_TO_FIFOS(amount)\
+if(centreExtract>0) {\
+	copy_to_circular_buffer_extractcentre(fftFrameSize, indata2, tInFIFO2, gRover, amount,indata);\
+} else {\
+	copy_to_circular_buffer(fftFrameSize, indata2, tInFIFO2, gRover, amount,NULL);\
+}\
+	gRover=copy_to_circular_buffer(fftFrameSize, indata, tInFIFO, gRover, amount,NULL);
+	
 // -----------------------------------------------------------------------------------------------------------------
 
 
-void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp, float sampleRate, float *indata, float *indata2, float *outdata, long gInit, float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract)
+void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp,
+		float sampleRate, float *indata, float *indata2, float *outdata, long gInit,
+		float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract) {
+	//Declare these new local variables, so the compiler knows none of them are aliased.
+	float*  __restrict__ tInFIFO=gInFIFO;
+	float* __restrict__ tOutputAccum=gOutputAccum;
+	float* __restrict__ tFFTRealBuffer=FFTRealBuffer;
+	float* __restrict__ tAnaFreq=gAnaFreq;
+	float* __restrict__ tAnaMagn=gAnaMagn;
+	float* __restrict__ tInFIFO2=gInFIFO2;
+	float* __restrict__ tAnaMagn2=gAnaMagn2;
+	float* __restrict__ tDecay=gDecay;
+	float* __restrict__ twindow=window;
 
-{
-	static long gRover=false;
-	static long outAccumIndex=0;
-	static long copiesremaining=0;
-	
-	if(numSampsToProcess<copiesremaining) {
-		outAccumIndex=copy_from_circular_buffer(fftFrameSize,outdata,gOutputAccum,outAccumIndex,numSampsToProcess);
-		copiesremaining-=numSampsToProcess;
-	} else {
-		outAccumIndex=copy_from_circular_buffer(fftFrameSize,outdata,gOutputAccum,outAccumIndex,copiesremaining);
-		copiesremaining=0;
-	}
 	/* set up some handy variables */
 	long fftFrameSize2 = fftFrameSize/2;
 	long stepSize = fftFrameSize/osamp;
@@ -171,192 +178,194 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 	fDecayRate=(fDecayRate>0)*(4.00001-(fDecayRate*fDecayRate*4));
 
 	double expct = 2.*PI*(double)stepSize/(double)fftFrameSize;
-	long inFifoLatency = fftFrameSize-stepSize;
-	if (gRover == false) {
-		gRover = inFifoLatency;
+
+
+	static long gRover=0;
+	static long samples_needed_in_buffer=stepSize;
+	static long outAccumIndex=stepSize;
+	static long copiesremaining=0;
+	{
+		int numpro=copiesremaining;
+		if(numSampsToProcess<copiesremaining) {
+			numpro=numSampsToProcess;
+			copiesremaining-=numSampsToProcess;
+		} else {
+			copiesremaining=0;
+		}
+		outAccumIndex=copy_from_circular_buffer(fftFrameSize,outdata,tOutputAccum,outAccumIndex,numpro,NULL);
+		outdata+=numpro;
 	}
-	/* main processing loop */
-	for (long i=0; i < numSampsToProcess; i++){
 
-		/* As long as we have not yet collected enough data just read in */
-		gInFIFO[gRover] = indata[i];
-		gInFIFO2[gRover] = (indata2[i]-(indata[i]*centreExtract)); // R input gain factor here
-
-		gRover++;
+	while(numSampsToProcess>samples_needed_in_buffer) {
 		
-		/* now we have enough data for processing */
-		if (gRover >= fftFrameSize) {
-			gRover = inFifoLatency;
+		COPY_TO_FIFOS(samples_needed_in_buffer)
+		
+		copy_from_circular_buffer_window(fftFrameSize,tFFTRealBuffer,tInFIFO,gRover,fftFrameSize,twindow);
 
+		/* do transform */
+		fftwf_execute(forward_sp1);
 
-			/* do windowing  */
-			for (long k = 0; k < fftFrameSize;k++) {
-				FFTRealBuffer[k]=gInFIFO[k] * window[k];
-			}
+		copy_from_circular_buffer_window(fftFrameSize,tFFTRealBuffer,tInFIFO2,gRover,fftFrameSize,twindow);
 
-			/* do transform */
-			fftwf_execute(forward_sp1);
-			
-			for (long k = 0; k < fftFrameSize;k++) {
-				FFTRealBuffer[k]=gInFIFO2[k] * window[k];
-			}
-			
-			fftwf_execute(forward_sp2);
+		fftwf_execute(forward_sp2);
 
-			/* frequency analysis */
-			for (long k = 0; k <= fftFrameSize2; k++) {
+		/* frequency analysis */
+		for (long k = 0; k <= fftFrameSize2; k++) {
 
-				/* de-interlace FFT buffer */
-				double real = gFFTworksp[k][0];
-				double imag = gFFTworksp[k][1];
+			/* de-interlace FFT buffer */
+			double real = gFFTworksp[k][0];
+			double imag = gFFTworksp[k][1];
 
-				/* compute magnitude and phase */
-				gAnaMagn[k] = 2.*sqrt(real*real + imag*imag);
-				double phase = atan2(imag,real);
+			/* compute magnitude and phase */
+			tAnaMagn[k] = 2.*sqrt(real*real + imag*imag);
+			double phase = atan2(imag,real);
 
-				double tmp = phase-(double)k*expct;
-				long qpd = tmp/PI;
-				if (qpd >= 0) qpd += qpd&1;
-				else qpd -= qpd&1;
-				tmp -= PI*(double)qpd;
-				tmp *= dOversampbytwopi;
+			double tmp = phase-(double)k*expct;
+			long qpd = tmp/PI;
+			if (qpd >= 0) qpd += qpd&1;
+			else qpd -= qpd&1;
+			tmp -= PI*(double)qpd;
+			tmp *= dOversampbytwopi;
 
-				/* store frequency in analysis array */
+			/* store frequency in analysis array */
 
-				gAnaFreq[k] = ((double)k + tmp)*freqPerBin;
-
-			}
-
-			/* this is the processing section */
-
-			// lo cut
-			for (long k = 0; k <= loCut+iBlur; k++) {  
-				gFFTworksp[k][0]=0;
-				gFFTworksp[k][1]=0;
-			}
-
-			// hi cut
-			for (long k = fftFrameSize2-HiCut-iBlur; k <= fftFrameSize2; k++) {  
-				gFFTworksp[k][0]=0;
-				gFFTworksp[k][1]=0;		
-			}
-
-			/* get R input magnitudes */
-
-			for (long k = loCut; k <= fftFrameSize2-HiCut; k++) {
-			    float real=gFFTworksp2[k][0];
-			    float imag=gFFTworksp2[k][1];
-				gAnaMagn2[k]=(2.*sqrt(real*real+imag*imag));
-			}
-
-
-			for (long k = loCut+iBlur; k <= fftFrameSize2-HiCut-iBlur; k++) {
-
-
-				/* decay control */
-
-				if (gAnaMagn2[k]>gDecay[k]) {
-					gDecay[k]=gAnaMagn2[k];
-				} else {
-					gDecay[k]=(gDecay[k]-fDecayRate);
-					gDecay[k]=gDecay[k]*(gDecay[k]>1);
-				}
-				if (fDecayRate==0) {
-					gDecay[k]=gAnaMagn2[k]; // if decay is off, set this value to right channel magn
-				}
-				/* spectral blur control */
-
-				for (long m=-iBlur; m<iBlur; m++) {
-					if (gAnaMagn2[k+m]>gDecay[k]) {
-						gDecay[k]=gAnaMagn2[k+m];
-					}
-				}					   
-
-				/* this is the 'knockout' process */
-
-				double magn = gAnaMagn[k] - gDecay[k]; // subtract right channel magnitudes from left, with decay
-				magn = magn * (magn>0); // zero -ve partials
-
-				//(Note by Jeremy): The phase has not been modified at all.
-				//This exactly undoes the transformation of the phase of the left
-				//channel which we did during the analysis phase.
-				
-				/* correct the frequency - sm sprenger method */
-				double tmp = gAnaFreq[k];
-				tmp -= (double)k*freqPerBin;
-				tmp *= dFreqfactor;
-				tmp += (double)k*expct;
-
-				/* get real and imag part and re-interleave */
-				gFFTworksp[k][0] = magn*myQT.QuickCos(tmp);
-				gFFTworksp[k][1] = magn*myQT.QuickSin(tmp);
-
-			} 
-
-			/* do inverse transform */
-			fftwf_execute(backwards);
-
-			long inindex=0;
-			/* do windowing and add to output accumulator */ 
-			
-			/*
-			 *	For this step, we observe that gOutputAccum is a circular buffer
-			 *  of size fftFrameSize.  The previous stepSize frames of data we
-			 *  can discard, since it was just written out.  However, the remaining
-			 *  Data we want to accumulate to.  Thus, we add to the next fftFrameSize - stepSize
-			 *  frames of data, and overwrite the last stepSize frames.  However,
-			 *  This is a little more complicated because we have to wrap around the circular buffers.
-			*/
-			long lastind=outAccumIndex-stepSize;
-			if(lastind<0) {
-				lastind+=fftFrameSize;
-				//Fill up the part which we are still adding to.
-				for(long k=outAccumIndex; k < lastind; k++) {
-					gOutputAccum[k] += window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
-					inindex++;
-				}
-				//start to overwrite the old data at the end of the buffer.
-				for(long k=lastind; k<fftFrameSize; k++) {
-					gOutputAccum[k] = window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
-					inindex++;
-				}
-				//finish overwriting the remaining data at the wraparound.
-				for(long k=0; k<outAccumIndex; k++) {
-					gOutputAccum[k] = window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
-					inindex++;
-				}
-			} else {
-				//Start accumulating at the end of the buffer.
-				for(long k=outAccumIndex; k < fftFrameSize; k++) {
-					gOutputAccum[k] += window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
-					inindex++;
-				}
-				//continue accumulating at the beginning.
-				for(long k=0; k < lastind; k++) {
-					gOutputAccum[k] += window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
-					inindex++;
-				}
-				//overwrite the last bit of the data.
-				for(long k=lastind; k<outAccumIndex; k++) {
-					gOutputAccum[k] = window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
-					inindex++;
-				}
-			}
-			//We output as much of the buffer as we can now, and use copiesremaining to notify later run() calls to empty the
-			//rest of the buffer when it can.
-			long numcopy=stepSize;
-			if(numcopy>(numSampsToProcess-i-1)) {
-				numcopy=numSampsToProcess-i-1;
-				copiesremaining=stepSize-numcopy;
-				copiesremaining*=(copiesremaining>0);
-			}
-			outAccumIndex=copy_from_circular_buffer(fftFrameSize,(outdata+i),gOutputAccum,outAccumIndex,numcopy);
-			
-			memmove (gInFIFO, gInFIFO+stepSize, inFifoLatency*sizeof(float));
-			memmove (gInFIFO2, gInFIFO2+stepSize, inFifoLatency*sizeof(float));
+			tAnaFreq[k] = ((double)k + tmp)*freqPerBin;
 
 		}
+
+		/* this is the processing section */
+
+		// lo cut
+		for (long k = 0; k <= loCut+iBlur; k++) {  
+			gFFTworksp[k][0]=0;
+			gFFTworksp[k][1]=0;
+		}
+
+		// hi cut
+		for (long k = fftFrameSize2-HiCut-iBlur; k <= fftFrameSize2; k++) {  
+			gFFTworksp[k][0]=0;
+			gFFTworksp[k][1]=0;		
+		}
+
+		/* get R input magnitudes */
+
+		for (long k = loCut; k <= fftFrameSize2-HiCut; k++) {
+			float real=gFFTworksp2[k][0];
+			float imag=gFFTworksp2[k][1];
+			tAnaMagn2[k]=(2.*sqrt(real*real+imag*imag));
+		}
+
+
+		for (long k = loCut+iBlur; k <= fftFrameSize2-HiCut-iBlur; k++) {
+
+
+			/* decay control */
+
+			if (tAnaMagn2[k]>tDecay[k]) {
+				tDecay[k]=tAnaMagn2[k];
+			} else {
+				tDecay[k]=(tDecay[k]-fDecayRate);
+				tDecay[k]=tDecay[k]*(tDecay[k]>1);
+			}
+			if (fDecayRate==0) {
+				tDecay[k]=tAnaMagn2[k]; // if decay is off, set this value to right channel magn
+			}
+			/* spectral blur control */
+
+			for (long m=-iBlur; m<iBlur; m++) {
+				if (tAnaMagn2[k+m]>tDecay[k]) {
+					tDecay[k]=tAnaMagn2[k+m];
+				}
+			}					   
+
+			/* this is the 'knockout' process */
+
+			double magn = tAnaMagn[k] - tDecay[k]; // subtract right channel magnitudes from left, with decay
+			magn = magn * (magn>0); // zero -ve partials
+
+			//(Note by Jeremy): The phase has not been modified at all.
+			//This exactly undoes the transformation of the phase of the left
+			//channel which we did during the analysis phase.
+
+			/* correct the frequency - sm sprenger method */
+			double tmp = tAnaFreq[k];
+			tmp -= (double)k*freqPerBin;
+			tmp *= dFreqfactor;
+			tmp += (double)k*expct;
+
+			/* get real and imag part and re-interleave */
+			gFFTworksp[k][0] = magn*myQT.QuickCos(tmp);
+			gFFTworksp[k][1] = magn*myQT.QuickSin(tmp);
+
+		} 
+
+		/* do inverse transform */
+		fftwf_execute(backwards);
+
+		long inindex=0;
+		/* do windowing and add to output accumulator */ 
+
+		/*
+		 *	For this step, we observe that tOutputAccum is a circular buffer
+		 *  of size fftFrameSize.  The previous stepSize frames of data we
+		 *  can discard, since it was just written out.  However, the remaining
+		 *  Data we want to accumulate to.  Thus, we add to the next fftFrameSize - stepSize
+		 *  frames of data, and overwrite the last stepSize frames.  However,
+		 *  This is a little more complicated because we have to wrap around the circular buffers.
+		 */
+		long lastind=outAccumIndex-stepSize;
+		if(lastind<0) {
+			lastind+=fftFrameSize;
+			//Fill up the part which we are still adding to.
+			for(long k=outAccumIndex; k < lastind; k++) {
+				tOutputAccum[k] += twindow[inindex]*tFFTRealBuffer[inindex]/(dOutfactor);
+				inindex++;
+			}
+			//start to overwrite the old data at the end of the buffer.
+			for(long k=lastind; k<fftFrameSize; k++) {
+				tOutputAccum[k] = twindow[inindex]*tFFTRealBuffer[inindex]/(dOutfactor);
+				inindex++;
+			}
+			//finish overwriting the remaining data at the wraparound.
+			for(long k=0; k<outAccumIndex; k++) {
+				tOutputAccum[k] = twindow[inindex]*tFFTRealBuffer[inindex]/(dOutfactor);
+				inindex++;
+			}
+		} else {
+			//Start accumulating at the end of the buffer.
+			for(long k=outAccumIndex; k < fftFrameSize; k++) {
+				tOutputAccum[k] += twindow[inindex]*tFFTRealBuffer[inindex]/(dOutfactor);
+				inindex++;
+			}
+			//continue accumulating at the beginning.
+			for(long k=0; k < lastind; k++) {
+				tOutputAccum[k] += twindow[inindex]*tFFTRealBuffer[inindex]/(dOutfactor);
+				inindex++;
+			}
+			//overwrite the last bit of the data.
+			for(long k=lastind; k<outAccumIndex; k++) {
+				tOutputAccum[k] = twindow[inindex]*tFFTRealBuffer[inindex]/(dOutfactor);
+				inindex++;
+			}
+		}
+		//We output as much of the buffer as we can now, and use copiesremaining to notify later run() calls to empty the
+		//rest of the buffer when it can.
+		long overflow=stepSize-numSampsToProcess;
+		long numcopy=stepSize;
+		if(overflow>0) {
+			copiesremaining=overflow;
+			numcopy=numSampsToProcess;
+		}
+		outAccumIndex=copy_from_circular_buffer(fftFrameSize,outdata,tOutputAccum,outAccumIndex,numcopy,NULL);
+		outdata+=numcopy;
+		
+		numSampsToProcess-=samples_needed_in_buffer;
+		indata+=samples_needed_in_buffer;
+		indata2+=samples_needed_in_buffer;
+		samples_needed_in_buffer=stepSize;
 	}
+	COPY_TO_FIFOS(numSampsToProcess)
+	samples_needed_in_buffer-=numSampsToProcess;
 }
 
 // -----------------------------------------------------------------------------------------------------------------
