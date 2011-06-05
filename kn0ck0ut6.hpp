@@ -3,6 +3,10 @@
 #ifndef __AGAIN_H
 #define __AGAIN_H
 
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
+
 #include <lv2plugin.hpp>
 #include <fftw3.h>
 #include "float.h"
@@ -18,6 +22,8 @@ class AKnockout:public Plugin<AKnockout> {
 	AKnockout(double srate);
 	~AKnockout();
 	void run(uint32_t numsamples);
+	void activate();
+	void deactivate();
 	CQuickTrig myQT;
 	
 	

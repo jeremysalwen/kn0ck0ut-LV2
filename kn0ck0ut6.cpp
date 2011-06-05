@@ -1,9 +1,7 @@
 /* kn0ck0ut v0.4 by st3pan0va 2004 */
 
 #include "kn0ck0ut6.hpp"
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
+
 
 
 void CQuickTrigConsts::Initialize() // function to initialise quick sin & cos
@@ -40,14 +38,18 @@ AKnockout::AKnockout(double rate) : Plugin<AKnockout>(p_n_ports)
 	sampleRate=rate;
 	gfftSize=8192;
 	goverlap=8;
+}
+void AKnockout::activate() {
 	AllocateNewBuffers(gfftSize);
 	clearBuffers();
 }
 
-//-----------------------------------------------------------------------------------------
-AKnockout::~AKnockout() // delete buffers in destructor
-{
+void AKnockout::deactivate() {// delete buffers when deactivated
 	FreeOldBuffers();
+}
+//-----------------------------------------------------------------------------------------
+AKnockout::~AKnockout() 
+{
 }
 
 void AKnockout::AllocateNewBuffers(unsigned int fftSize) {
