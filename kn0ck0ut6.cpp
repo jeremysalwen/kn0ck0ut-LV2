@@ -200,6 +200,32 @@ void AKnockout::run(uint32_t sampleFrames)
 			return length+start;\
 		}\
 }
+#define DEFINE_CIRC_COPY_MEMMOVE(NAME, OUT, IN) \
+	static inline int NAME(int circularsize,\
+	float *  flat,\
+	float *  circular,\
+	int start,	int length,\
+	float* __restrict window) {\
+		int leftover=start+length-circularsize;\
+		if(leftover>0) {\
+			int flatoffset=0;\
+			int circularoffset=start;\
+			memmove(OUT,IN,sizeof(float)*(circularsize-start));\
+			flatoffset=circularsize-start;\
+			circularoffset=0;\
+			memmove(OUT,IN,sizeof(float)*leftover);\
+			return leftover;\
+		} else {\
+			int flatoffset=0;\
+			int circularoffset=start;\
+			memmove(OUT,IN,sizeof(float)*length);\
+			return length+start;\
+		}\
+}
+
+DEFINE_CIRC_COPY_MEMMOVE(memmove_to_circular_buffer,(circular+circularoffset),(flat+flatoffset))
+DEFINE_CIRC_COPY_MEMMOVE(memmove_from_circular_buffer,(flat+flatoffset),(circular+circularoffset))
+
 DEFINE_CIRC_COPY(copy_to_circular_buffer,circular[circularindex],flat[flatindex])
 DEFINE_CIRC_COPY(copy_from_circular_buffer,flat[flatindex],circular[circularindex])
 
@@ -210,9 +236,9 @@ DEFINE_CIRC_COPY(copy_from_circular_buffer_window,flat[flatindex],circular[circu
 if(centreExtract>0) {\
 	copy_to_circular_buffer_extractcentre(fftFrameSize, indata2, tInFIFO2, gRover, amount,indata);\
 } else {\
-	copy_to_circular_buffer(fftFrameSize, indata2, tInFIFO2, gRover, amount,NULL);\
+	memmove_to_circular_buffer(fftFrameSize, indata2, tInFIFO2, gRover, amount,NULL);\
 }\
-	gRover=copy_to_circular_buffer(fftFrameSize, indata, tInFIFO, gRover, amount,NULL);
+	gRover=memmove_to_circular_buffer(fftFrameSize, indata, tInFIFO, gRover, amount,NULL);
 	
 // -----------------------------------------------------------------------------------------------------------------
 
@@ -255,7 +281,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 		} else {
 			copiesremaining=0;
 		}
-		outAccumIndex=copy_from_circular_buffer(fftFrameSize,outdata,tOutputAccum,outAccumIndex,numpro,NULL);
+		outAccumIndex=memmove_from_circular_buffer(fftFrameSize,outdata,tOutputAccum,outAccumIndex,numpro,NULL);
 		outdata+=numpro;
 	}
 
@@ -417,7 +443,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			copiesremaining=overflow;
 			numcopy=numSampsToProcess;
 		}
-		outAccumIndex=copy_from_circular_buffer(fftFrameSize,outdata,tOutputAccum,outAccumIndex,numcopy,NULL);
+		outAccumIndex=memmove_from_circular_buffer(fftFrameSize,outdata,tOutputAccum,outAccumIndex,numcopy,NULL);
 		outdata+=numcopy;
 		
 		numSampsToProcess-=samples_needed_in_buffer;
