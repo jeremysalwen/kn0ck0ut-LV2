@@ -73,7 +73,7 @@ void AKnockout::AllocateNewBuffers(unsigned int fftSize) {
 
 	makelookup(fftSize);
 
-	suspend ();		// flush buffer
+	clearBuffers ();		// flush buffer
 }
 void AKnockout::FreeOldBuffers() {
 	delete[] gInFIFO;
@@ -91,7 +91,7 @@ void AKnockout::FreeOldBuffers() {
 
 
 //-----------------------------------------------------------------------------------------
-void AKnockout::suspend ()
+void AKnockout::clearBuffers()
 {
 	unsigned int fftSize=gfftSize;
 	unsigned int fftSize2=fftSize/2+1;
@@ -221,7 +221,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 		float sampleRate, float *indata, float *indata2, float *outdata,
 		float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract) {
 	//Declare these new local variables, so the compiler knows none of them are aliased.
-	float*  __restrict__ tInFIFO=gInFIFO;
+	float* __restrict__ tInFIFO=gInFIFO;
 	float* __restrict__ tOutputAccum=gOutputAccum;
 	float* __restrict__ tFFTRealBuffer=FFTRealBuffer;
 	float* __restrict__ tAnaFreq=gAnaFreq;
@@ -434,16 +434,16 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 /* make lookup table for window function
 
    The windowing function used is a raised cosine.  This has very nice
- overlapping properties for any even ratio of overlapping.  He actually windows
- twice, once before analysis, and once after.  Thus the actual window used is
- the square of this window, i.e. the original window is 0.5 - 0.5*cos, so the
- square is (0.5-0.5*cos)^2=0.25*(1+cos^2-2*cos).  Now, let us look at the case
- of the 1/4 overlapping window.  Shifting the window by 1/4, the cosine becomes
- sine.  Thus we get a total of 0.25*(1+cos^2-2*cos+1+sin^2-2*sin).  The sin^2
- and cos^2 sum to 1, leaving 0.25*(2-2*sin-2*cos).  However, we have to consider
- the sum of four consecutive windows, as this is the period by which it will
- repeat.  Since we have figured out the sum of the first two windows, we can
- simply shift this sum by 1/2 a window length to get the third and fourth
+ overlapping properties for any multiple of four ratio of overlapping.  He
+ actually windows twice, once before analysis, and once after.  Thus the actual
+ window used is the square of this window, i.e. the original window is 
+ 0.5 - 0.5*cos, so the square is (0.5-0.5*cos)^2=0.25*(1+cos^2-2*cos).  Now, let
+ us look at the case of the 1/4 overlapping window.  Shifting the window by 1/4,
+ the cosine becomes sine.  Thus we get a total of 0.25*(1+cos^2-2*cos+1+sin^2-2*sin).
+ The sin^2 and cos^2 sum to 1, leaving 0.25*(2-2*sin-2*cos).  However, we have 
+ to consider the sum of four consecutive windows, as this is the period by which
+ it will repeat.  Since we have figured out the sum of the first two windows, we
+ can simply shift this sum by 1/2 a window length to get the third and fourth
  windows.  The sines and cosines are both flipped in sign when we shift them
  half a period, so the sum is just going to be the sum of the constant parts.
  That is, it will be 0.25*2 +0.25*2 = 2.  This will be the factor by which we

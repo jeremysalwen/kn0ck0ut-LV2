@@ -18,11 +18,11 @@ class AKnockout:public Plugin<AKnockout> {
 	AKnockout(double srate);
 	~AKnockout();
 	void run(uint32_t numsamples);
-	void suspend();
 	CQuickTrig myQT;
 	
 	
 private:
+	void clearBuffers();
 	void AllocateNewBuffers(unsigned int fftsize);
 	void FreeOldBuffers();
 	unsigned int goverlap;
