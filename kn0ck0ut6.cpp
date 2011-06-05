@@ -250,7 +250,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 	long stepSize = fftFrameSize/osamp;
 	double dOversampbytwopi = (double)osamp/(PI*2);	
 	double freqPerBin = sampleRate/(double)fftFrameSize;
-	double dFreqfactor = PI/(double)osamp/freqPerBin*2;
+	double dFreqfactor = 2*PI/(double)osamp/freqPerBin;
 	double dOutfactor = (double)fftFrameSize2*(double)osamp;
 	fDecayRate=(fDecayRate>0)*(4.00001-(fDecayRate*fDecayRate*4));
 
@@ -363,14 +363,14 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			//channel which we did during the analysis phase.
 
 			/* correct the frequency - sm sprenger method */
-			double tmp = tAnaFreq[k];
-			tmp -= (double)k*freqPerBin;
+			float tmp = tAnaFreq[k];
+			tmp -= (float)k*freqPerBin;
 			tmp *= dFreqfactor;
-			tmp += (double)k*expct;
+			tmp += (float)k*expct;
 
 			/* get real and imag part and re-interleave */
 			gFFTworksp[k][0] = magn*myQT.QuickCos(tmp);
-			gFFTworksp[k][1] = magn*myQT.QuickSin(tmp);
+			gFFTworksp[k][1] = magn*b9series(tmp);
 
 		} 
 

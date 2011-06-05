@@ -12,7 +12,7 @@ $(BUNDLE): manifest.ttl kn0ck0ut.ttl libkn0ck0ut.so
 	mkdir $(BUNDLE)
 	cp manifest.ttl kn0ck0ut.ttl libkn0ck0ut.so $(BUNDLE)
 	
-kn0ck0ut6.o: kn0ck0ut6.cpp kn0ck0ut6.hpp kn0ck0ut.peg
+kn0ck0ut6.o: kn0ck0ut6.cpp kn0ck0ut6.hpp kn0ck0ut.peg vectrig.h
 	$(CXX) -c $(CXXFLAGS) kn0ck0ut6.cpp -o kn0ck0ut6.o
 	
 kn0ck0ut.peg: kn0ck0ut.ttl
