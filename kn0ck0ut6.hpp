@@ -12,8 +12,6 @@
 
 using namespace LV2;
 
-#define MAX_FRAME_LENGTH 16384
-
 
 class AKnockout:public Plugin<AKnockout> {
 	public:

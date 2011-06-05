@@ -5,7 +5,6 @@
 #include <string.h>
 #include <math.h>
 
-#define FFTWINDOW 8192
 
 void CQuickTrigConsts::Initialize() // function to initialise quick sin & cos
 {
