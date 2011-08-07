@@ -6,7 +6,7 @@
 @prefix ev: <http://lv2plug.in/ns/ext/event#>.
 @prefix ll: <http://ll-plugins.nongnu.org/lv2/namespace#>.
 
-<urn:St3pan0va.plugins.kn0ck0ut> a lv2:Plugin ;
+<urn:St3pan0va.plugins.kn0ck0ut.1> a lv2:Plugin ;
     doap:name "Kn0ck0ut Vocal Remover" ;
     lv2:binary <libkn0ck0ut.so>;
     doap:developer [
@@ -41,7 +41,6 @@
     lv2:index 3;
     lv2:symbol "mode";
     lv2:name "Mode";
-    lv2:portProperty lv2:toggled;
     lv2:portProperty lv2:enumeration;
     lv2:default 0;
     lv2:scalePoint [ rdfs:label "Extract Centre"; rdf:value 1 ];
@@ -100,4 +99,18 @@
     lv2:default 2;
     lv2:minimum 1;
     lv2:maximum 32;
+    ],[
+    a lv2:InputPort;
+    a lv2:ControlPort;
+    lv2:index 10;
+    lv2:symbol "phase";
+    lv2:name "Phase Compensation";
+    lv2:portProperty lv2:toggled;
+    ],[
+    a lv2:OutputPort;
+    a lv2:ControlPort;
+    lv2:index 11;
+    lv2:symbol "latency";
+    lv2:name "Latency";
+    lv2:portProperty lv2:reportsLatency;
     ].

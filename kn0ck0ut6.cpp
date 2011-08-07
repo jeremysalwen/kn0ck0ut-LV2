@@ -58,7 +58,8 @@ void AKnockout::AllocateNewBuffers(unsigned int fftSize) {
 	FFTRealBuffer=(float*)fftwf_malloc(sizeof(float)*fftSize);
 	gFFTworksp = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * fftSize2);
 	gOutputAccum = new float [fftSize];
-	gAnaFreq = new float [fftSize2];
+	gAnaPhase1 = new float [fftSize2];
+	gAnaPhase2 = new float [fftSize2];
 	gAnaMagn = new float [fftSize2];
 	gInFIFO2 = new float [fftSize];
 	gFFTworksp2 = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * fftSize2);
@@ -80,7 +81,8 @@ void AKnockout::FreeOldBuffers() {
 	fftwf_free(FFTRealBuffer);
 	fftwf_free(gFFTworksp);
 	delete[] gOutputAccum;
-	delete[] gAnaFreq;
+	delete[] gAnaPhase1;
+	delete[] gAnaPhase2;
 	delete[] gAnaMagn;
 	delete[] gAnaMagn2;
 	delete[] gInFIFO2;
@@ -98,7 +100,8 @@ void AKnockout::clearBuffers()
 	memset(gInFIFO, 0, fftSize*sizeof(float));
 	memset(gFFTworksp, 0, fftSize2*sizeof(fftwf_complex));
 	memset(gOutputAccum, 0, fftSize*sizeof(float));
-	memset(gAnaFreq, 0, fftSize2*sizeof(float));
+	memset(gAnaPhase1, 0, fftSize2*sizeof(float));
+	memset(gAnaPhase2, 0, fftSize2*sizeof(float));
 	memset(gAnaMagn, 0, fftSize2*sizeof(float));
 	memset(gInFIFO2, 0, fftSize*sizeof(float));
 	memset(gFFTworksp2, 0, fftSize2*sizeof(fftwf_complex));
@@ -183,11 +186,14 @@ void AKnockout::run(uint32_t sampleFrames)
 	if(resetbuffers) {
 		clearBuffers();
 	}
+	//Latency works out to be exactly the fft size.
+	*p(p_latency)=gfftSize;
 	CLAMP_PORT(int,iBlur,p_blur)
 	CLAMP_PORT(float,fDecay,p_decay)
+	bool consider_phase = *p(p_phase)>0;
 	// arguments are number of samples to process, fft window size, sample overlap (4-32), input buffer, output buffer, init flag, gain, R input gain, decay, l cut, hi cut
 
-	do_rebuild(sampleFrames, gfftSize, goverlap, sampleRate, p(p_left), p(p_right), p(p_out), fDecay, iBlur, loCut, hiCut, centre);
+	do_rebuild(sampleFrames, gfftSize, goverlap, sampleRate, p(p_left), p(p_right), p(p_out), fDecay, iBlur, loCut, hiCut, centre, consider_phase);
 }
 #define DEFINE_CIRC_COPY(NAME, OUTBUFFER, INBUFFER) \
 	static inline int NAME(int circularsize,\
@@ -230,15 +236,27 @@ if(centreExtract>0) {\
 	
 // -----------------------------------------------------------------------------------------------------------------
 
+float AKnockout::phaseToFrequency(float phase, int k,float dOversampbytwopi, float expct) {
+	phase-=k*expct;
+	phase+=PI;
+	//now bring into range [0, 2*pi)
+	long qpd = phase/(2*PI);
+	phase -= 2*PI*qpd;
+	phase+=2*PI*(phase<0);
+	//return to [-pi,pi)
+	phase-=PI;
 
+	return ((double)k + phase*dOversampbytwopi);
+}
 void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp,
 		float sampleRate, float *indata, float *indata2, float *outdata,
-		float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract) {
+		float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract, bool consider_phase) {
 	//Declare these new local variables, so the compiler knows none of them are aliased.
 	float* __restrict__ tInFIFO=gInFIFO;
 	float* __restrict__ tOutputAccum=gOutputAccum;
 	float* __restrict__ tFFTRealBuffer=FFTRealBuffer;
-	float* __restrict__ tAnaFreq=gAnaFreq;
+	float* __restrict__ tAnaPhase1=gAnaPhase1;
+	float* __restrict__ tAnaPhase2=gAnaPhase2;
 	float* __restrict__ tAnaMagn=gAnaMagn;
 	float* __restrict__ tInFIFO2=gInFIFO2;
 	float* __restrict__ tAnaMagn2=gAnaMagn2;
@@ -248,13 +266,12 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 	/* set up some handy variables */
 	long fftFrameSize2 = fftFrameSize/2;
 	long stepSize = fftFrameSize/osamp;
-	double dOversampbytwopi = (double)osamp/(PI*2);	
-	double freqPerBin = sampleRate/(double)fftFrameSize;
-	double dFreqfactor = PI/(double)osamp/freqPerBin*2;
-	double dOutfactor = (double)fftFrameSize2*(double)osamp;
+	float dOversampbytwopi = osamp/(PI*2);	
+	float freqPerBin = sampleRate/fftFrameSize;
+	float dOutfactor = fftFrameSize2*osamp;
 	fDecayRate=(fDecayRate>0)*(4.00001-(fDecayRate*fDecayRate*4));
 
-	double expct = 2.*PI*(double)stepSize/(double)fftFrameSize;
+	float expct = 2.*PI*(double)stepSize/(double)fftFrameSize;
 	{
 		int numpro=copiesremaining;
 		if(numSampsToProcess<copiesremaining) {
@@ -284,28 +301,12 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 		for (long k = 0; k <= fftFrameSize2; k++) {
 
 			/* de-interlace FFT buffer */
-			double real = gFFTworksp[k][0];
-			double imag = gFFTworksp[k][1];
+			float real = gFFTworksp[k][0];
+			float imag = gFFTworksp[k][1];
 
 			/* compute magnitude and phase */
 			tAnaMagn[k] = 2.*sqrt(real*real + imag*imag);
-			double phase = atan2(imag,real);
-
-			double tmp = phase-(double)k*expct;
-			tmp+=PI;
-			//now bring into range [0, 2*pi)
-			long qpd = tmp/(2*PI);
-			tmp -= 2*PI*(double)qpd;
-			tmp+=2*PI*(tmp<0);
-			//return to [-pi,pi)
-			tmp-=PI;
-			//Multiply by factor of Oversampbytwopi
-			tmp *= dOversampbytwopi;
-
-			/* store frequency in analysis array */
-
-			tAnaFreq[k] = ((double)k + tmp)*freqPerBin;
-
+			tAnaPhase1[k]=atan2(imag,real);
 		}
 
 		/* this is the processing section */
@@ -328,6 +329,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			float real=gFFTworksp2[k][0];
 			float imag=gFFTworksp2[k][1];
 			tAnaMagn2[k]=(2.*sqrt(real*real+imag*imag));
+			tAnaPhase2[k]=atan2(imag,real);
 		}
 
 
@@ -351,27 +353,33 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 				if (tAnaMagn2[k+m]>tDecay[k]) {
 					tDecay[k]=tAnaMagn2[k+m];
 				}
-			}					   
-
+			}					 
+			//we subtract out the part of the right channel *parallel to* the left
+			float diff=fabs(tAnaPhase1[k]-tAnaPhase2[k]);
+			diff*=consider_phase;
+			float coef=cosf(diff);
+			if(coef<0) {
+				coef=0;
+			}
 			/* this is the 'knockout' process */
 
-			double magn = tAnaMagn[k] - tDecay[k]; // subtract right channel magnitudes from left, with decay
-			magn = magn * (magn>0); // zero -ve partials
+			tAnaMagn[k] = tAnaMagn[k] - coef* tDecay[k]; // subtract right channel magnitudes from left, with decay
+			tAnaMagn[k] = tAnaMagn[k] * (tAnaMagn[k]>0); // zero -ve partials
 
 			//(Note by Jeremy): The phase has not been modified at all.
 			//This exactly undoes the transformation of the phase of the left
 			//channel which we did during the analysis phase.
 
-			/* correct the frequency - sm sprenger method */
+			/* correct the frequency - sm sprenger method 
 			double tmp = tAnaFreq[k];
 			tmp -= (double)k*freqPerBin;
 			tmp *= dFreqfactor;
-			tmp += (double)k*expct;
+			tmp += (double)k*expct; */
 
 			/* get real and imag part and re-interleave */
-			myQT.QuickSinCos(tmp,gFFTworksp[k],gFFTworksp[k]+1);
-			gFFTworksp[k][0] *=magn;
-			gFFTworksp[k][1] *=magn;
+			myQT.QuickSinCos(tAnaPhase1[k],gFFTworksp[k],gFFTworksp[k]+1);
+			gFFTworksp[k][0] *=tAnaMagn[k];
+			gFFTworksp[k][1] *=tAnaMagn[k];
 
 		} 
 

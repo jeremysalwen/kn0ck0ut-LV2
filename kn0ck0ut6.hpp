@@ -35,13 +35,15 @@ private:
 	unsigned int gfftSize;
 	double sampleRate;
 	
-	void do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp, float sampleRate, float *indata, float *indata2, float *outdata, float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract);
+	void do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp, float sampleRate, float *indata, float *indata2, float *outdata, float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract, bool consider_phase);
 	void makelookup(int fftFrameSize);
+	inline float phaseToFrequency(float phase, int k,float dOversampbytwopi, float expct);
 	
 	float*  __restrict gInFIFO ;
 	float* __restrict gOutputAccum;
 	float* __restrict FFTRealBuffer;
-	float* __restrict gAnaFreq;
+	float* __restrict gAnaPhase1;
+	float* __restrict gAnaPhase2;
 	float* __restrict gAnaMagn;
 	float* __restrict gInFIFO2;
 	float* __restrict gAnaMagn2;
