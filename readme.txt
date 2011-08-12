@@ -1,4 +1,6 @@
-kn0ck0ut-LV2 version 1.0 by Jeremy Salwen. An LV2 port of kn0ck0ut (http://www.freewebs.com/st3pan0va/)
+kn0ck0ut-LV2 version 1.0 by Jeremy Salwen (jeremysalwen@gmail.com). 
+
+An LV2 port of kn0ck0ut (http://www.freewebs.com/st3pan0va/)
 
 Kn0ck0ut-LV2 is an LV2 plugin to perform spectral subtraction.  It can be used 
 to achieve a wide variety of effects, most notably removing or extracting the

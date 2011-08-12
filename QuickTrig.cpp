@@ -1,3 +1,7 @@
+// Copyright (c) 1999-2003 Robin Davies.
+// Placed into the public domain. 
+// All uses permitted without attribution.
+
 #include "QuickTrig.h"
 #include <math.h> 
 
