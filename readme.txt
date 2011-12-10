@@ -1,4 +1,4 @@
-kn0ck0ut-LV2 version 1.0 by Jeremy Salwen (jeremysalwen@gmail.com). 
+kn0ck0ut-LV2 version 1.1 by Jeremy Salwen (jeremysalwen@gmail.com). 
 
 An LV2 port of kn0ck0ut (http://www.freewebs.com/st3pan0va/)
 
@@ -22,6 +22,7 @@ In addition to the features of the original Kn0ck0ut, Kn0ck0ut-LV2 features:
 * Experimental "Phase Compensation" option, which will perhaps preserve
   additional fidelity in certain cases.
 * Restored Low-cut filter which was removed in later releases.
+* Stereo output for center removal.
 
 Below Reads the Original Readme
 

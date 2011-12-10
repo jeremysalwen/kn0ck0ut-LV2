@@ -73,6 +73,7 @@ void AKnockout::AllocateNewBuffers(unsigned int fftSize) {
 	FFTRealBuffer=(float*)fftwf_malloc(sizeof(float)*fftSize);
 	gFFTworksp = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * fftSize2);
 	gOutputAccum = new float [fftSize];
+	gOutputAccum2 = new float [fftSize];
 	gAnaPhase1 = new float [fftSize2];
 	gAnaPhase2 = new float [fftSize2];
 	gAnaMagn = new float [fftSize2];
@@ -80,15 +81,17 @@ void AKnockout::AllocateNewBuffers(unsigned int fftSize) {
 	gFFTworksp2 = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * fftSize2);
 	gAnaMagn2 = new float [fftSize2];
 	gDecay = new float [fftSize2];
+	gDecay2 = new float [fftSize2];
 	window = new float [fftSize];
 
 	forward_sp1= fftwf_plan_dft_r2c_1d(fftSize, FFTRealBuffer , gFFTworksp,
                                     FFTW_ESTIMATE);
 	forward_sp2= fftwf_plan_dft_r2c_1d(fftSize,FFTRealBuffer, gFFTworksp2,
                                     FFTW_ESTIMATE);	
-	backwards=fftwf_plan_dft_c2r_1d(fftSize, gFFTworksp, FFTRealBuffer,
+	backward_sp1=fftwf_plan_dft_c2r_1d(fftSize, gFFTworksp, FFTRealBuffer,
                                     FFTW_ESTIMATE);
-
+	backward_sp2=fftwf_plan_dft_c2r_1d(fftSize, gFFTworksp2, FFTRealBuffer,
+                                    FFTW_ESTIMATE);
 	makelookup(fftSize);
 }
 void AKnockout::FreeOldBuffers() {
@@ -96,6 +99,7 @@ void AKnockout::FreeOldBuffers() {
 	fftwf_free(FFTRealBuffer);
 	fftwf_free(gFFTworksp);
 	delete[] gOutputAccum;
+	delete[] gOutputAccum2;
 	delete[] gAnaPhase1;
 	delete[] gAnaPhase2;
 	delete[] gAnaMagn;
@@ -103,6 +107,7 @@ void AKnockout::FreeOldBuffers() {
 	delete[] gInFIFO2;
 	fftwf_free(gFFTworksp2);
 	delete[] gDecay;
+	delete[] gDecay2;
 	delete[] window;
 }
 
@@ -115,6 +120,7 @@ void AKnockout::clearBuffers()
 	memset(gInFIFO, 0, fftSize*sizeof(float));
 	memset(gFFTworksp, 0, fftSize2*sizeof(fftwf_complex));
 	memset(gOutputAccum, 0, fftSize*sizeof(float));
+	memset(gOutputAccum2, 0, fftSize*sizeof(float));
 	memset(gAnaPhase1, 0, fftSize2*sizeof(float));
 	memset(gAnaPhase2, 0, fftSize2*sizeof(float));
 	memset(gAnaMagn, 0, fftSize2*sizeof(float));
@@ -122,6 +128,7 @@ void AKnockout::clearBuffers()
 	memset(gFFTworksp2, 0, fftSize2*sizeof(fftwf_complex));
 	memset(gAnaMagn2, 0, fftSize2*sizeof(float));
 	memset(gDecay,0,fftSize2*sizeof(float));
+	memset(gDecay2,0,fftSize2*sizeof(float));
 	
 	long stepSize=fftSize/goverlap;
 	gRover=0;
@@ -208,7 +215,7 @@ void AKnockout::run(uint32_t sampleFrames)
 	bool consider_phase = *p(p_phase)>0;
 	// arguments are number of samples to process, fft window size, sample overlap (4-32), input buffer, output buffer, init flag, gain, R input gain, decay, l cut, hi cut
 
-	do_rebuild(sampleFrames, gfftSize, goverlap, sampleRate, p(p_left), p(p_right), p(p_out), fDecay, iBlur, loCut, hiCut, centre, consider_phase);
+	do_rebuild(sampleFrames, gfftSize, goverlap, sampleRate, p(p_left), p(p_right), p(p_outl), p(p_outr), fDecay, iBlur, loCut, hiCut, centre, consider_phase);
 }
 #define DEFINE_CIRC_COPY(NAME, OUTBUFFER, INBUFFER) \
 	static inline int NAME(int circularsize,\
@@ -263,20 +270,100 @@ float AKnockout::phaseToFrequency(float phase, int k,float dOversampbytwopi, flo
 
 	return ((double)k + phase*dOversampbytwopi);
 }
+
+inline void AKnockout::knockout(float origmag,float origphase, fftwf_complex * __restrict workspace, float* __restrict magnbuff, float* __restrict decaybuff, float coef, int k, float fDecayRate, int iBlur) {
+	/* decay control */
+	if (magnbuff[k]>decaybuff[k]) {
+		decaybuff[k]=magnbuff[k];
+	} else {
+		decaybuff[k]=(decaybuff[k]-fDecayRate);
+		decaybuff[k]=decaybuff[k]*(decaybuff[k]>1);
+	}
+
+	if (fDecayRate==0) {
+		decaybuff[k]=magnbuff[k];/* if decay is off, set this value to right channel magn*/
+	}
+	/* spectral blur control */
+
+	for (long m=-iBlur; m<iBlur; m++) {
+		if (magnbuff[k+m]>decaybuff[k]) {
+			decaybuff[k]=magnbuff[k+m];
+		}
+	}
+
+	/* this is the 'knockout' process */
+
+	origmag -= coef* decaybuff[k]; /* subtract right channel magnitudes from left, with decay*/
+	origmag*= (origmag>0); /* zero -ve partials*/
+	/* get real and imag part and re-interleave */
+	myQT.QuickSinCos(origphase,workspace[k],workspace[k]+1);
+	workspace[k][0] *=origmag;
+	workspace[k][1] *=origmag;
+}
+
+inline void AKnockout::sumIntoCircularBuffer(float* __restrict outaccum,float dOutfactor,long outAccumIndex,long stepSize,long fftFrameSize){
+	long inindex=0;
+	/* do windowing and add to output accumulator */ 
+
+	/*
+	 *	For this step, we observe that tOutputAccum is a circular buffer
+	 *  of size fftFrameSize.  The previous stepSize frames of data we
+	 *  can discard, since it was just written out.  However, the remaining
+	 *  Data we want to accumulate to.  Thus, we add to the next fftFrameSize - stepSize
+	 *  frames of data, and overwrite the last stepSize frames.  However,
+	 *  This is a little more complicated because we have to wrap around the circular buffers.
+	 */
+	long lastind=outAccumIndex-stepSize;
+	if(lastind<0) {
+		lastind+=fftFrameSize;
+		//Fill up the part which we are still adding to.
+		for(long k=outAccumIndex; k < lastind; k++) {
+			outaccum[k] += window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+			inindex++;
+		}
+		//start to overwrite the old data at the end of the buffer.
+		for(long k=lastind; k<fftFrameSize; k++) {
+			outaccum[k] = window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+			inindex++;
+		}
+		//finish overwriting the remaining data at the wraparound.
+		for(long k=0; k<outAccumIndex; k++) {
+			outaccum[k] = window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+			inindex++;
+		}
+	} else {
+		//Start accumulating at the end of the buffer.
+		for(long k=outAccumIndex; k < fftFrameSize; k++) {
+			outaccum[k] += window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+			inindex++;
+		}
+		//continue accumulating at the beginning.
+		for(long k=0; k < lastind; k++) {
+			outaccum[k] += window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+			inindex++;
+		}
+		//overwrite the last bit of the data.
+		for(long k=lastind; k<outAccumIndex; k++) {
+			outaccum[k] = window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+			inindex++;
+		}
+	}
+}
+
 void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp,
-		float sampleRate, float *indata, float *indata2, float *outdata,
+		float sampleRate, float *indata, float *indata2, float *outdata1, float* outdata2,
 		float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract, bool consider_phase) {
 	//Declare these new local variables, so the compiler knows none of them are aliased.
-	float* __restrict__ tInFIFO=gInFIFO;
-	float* __restrict__ tOutputAccum=gOutputAccum;
-	float* __restrict__ tFFTRealBuffer=FFTRealBuffer;
-	float* __restrict__ tAnaPhase1=gAnaPhase1;
-	float* __restrict__ tAnaPhase2=gAnaPhase2;
-	float* __restrict__ tAnaMagn=gAnaMagn;
-	float* __restrict__ tInFIFO2=gInFIFO2;
-	float* __restrict__ tAnaMagn2=gAnaMagn2;
-	float* __restrict__ tDecay=gDecay;
-	float* __restrict__ twindow=window;
+	float* __restrict tInFIFO=gInFIFO;
+	float* __restrict tOutputAccum=gOutputAccum;
+	float* __restrict tOutputAccum2=gOutputAccum2;
+	float* __restrict tFFTRealBuffer=FFTRealBuffer;
+	float* __restrict tAnaPhase1=gAnaPhase1;
+	float* __restrict tAnaPhase2=gAnaPhase2;
+	float* __restrict tAnaMagn=gAnaMagn;
+	float* __restrict tInFIFO2=gInFIFO2;
+	float* __restrict tAnaMagn2=gAnaMagn2;
+	float* __restrict twindow=window;
 
 	/* set up some handy variables */
 	long fftFrameSize2 = fftFrameSize/2;
@@ -295,8 +382,10 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 		} else {
 			copiesremaining=0;
 		}
-		outAccumIndex=copy_from_circular_buffer(fftFrameSize,outdata,tOutputAccum,outAccumIndex,numpro,NULL);
-		outdata+=numpro;
+		copy_from_circular_buffer(fftFrameSize,outdata1,tOutputAccum,outAccumIndex,numpro,NULL);
+		outAccumIndex=copy_from_circular_buffer(fftFrameSize,outdata2,tOutputAccum2,outAccumIndex,numpro,NULL);
+		outdata1+=numpro;
+		outdata2+=numpro;
 	}
 
 	while(numSampsToProcess>=samples_needed_in_buffer) {
@@ -330,12 +419,16 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 		for (long k = 0; k <= loCut+iBlur; k++) {  
 			gFFTworksp[k][0]=0;
 			gFFTworksp[k][1]=0;
+			gFFTworksp2[k][0]=0;
+			gFFTworksp2[k][1]=0;
 		}
 
 		// hi cut
 		for (long k = fftFrameSize2-HiCut-iBlur; k <= fftFrameSize2; k++) {  
 			gFFTworksp[k][0]=0;
 			gFFTworksp[k][1]=0;		
+			gFFTworksp2[k][0]=0;
+			gFFTworksp2[k][1]=0;		
 		}
 
 		/* get R input magnitudes */
@@ -346,107 +439,28 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			tAnaMagn2[k]=(2.*sqrt(real*real+imag*imag));
 			tAnaPhase2[k]=atan2(imag,real);
 		}
-
-
+		
 		for (long k = loCut+iBlur; k <= fftFrameSize2-HiCut-iBlur; k++) {
-
-
-			/* decay control */
-
-			if (tAnaMagn2[k]>tDecay[k]) {
-				tDecay[k]=tAnaMagn2[k];
-			} else {
-				tDecay[k]=(tDecay[k]-fDecayRate);
-				tDecay[k]=tDecay[k]*(tDecay[k]>1);
-			}
-			if (fDecayRate==0) {
-				tDecay[k]=tAnaMagn2[k]; // if decay is off, set this value to right channel magn
-			}
-			/* spectral blur control */
-
-			for (long m=-iBlur; m<iBlur; m++) {
-				if (tAnaMagn2[k+m]>tDecay[k]) {
-					tDecay[k]=tAnaMagn2[k+m];
-				}
-			}					 
-			//we subtract out the part of the right channel *parallel to* the left
+			/*we subtract out the part of the right channel *parallel to* the left*/
 			float diff=fabs(tAnaPhase1[k]-tAnaPhase2[k]);
 			diff*=consider_phase;
 			float coef=cosf(diff);
 			if(coef<0) {
 				coef=0;
 			}
-			/* this is the 'knockout' process */
-
-			tAnaMagn[k] = tAnaMagn[k] - coef* tDecay[k]; // subtract right channel magnitudes from left, with decay
-			tAnaMagn[k] = tAnaMagn[k] * (tAnaMagn[k]>0); // zero -ve partials
-
-			//(Note by Jeremy): The phase has not been modified at all.
-			//This exactly undoes the transformation of the phase of the left
-			//channel which we did during the analysis phase.
-
-			/* correct the frequency - sm sprenger method 
-			double tmp = tAnaFreq[k];
-			tmp -= (double)k*freqPerBin;
-			tmp *= dFreqfactor;
-			tmp += (double)k*expct; */
-
-			/* get real and imag part and re-interleave */
-			myQT.QuickSinCos(tAnaPhase1[k],gFFTworksp[k],gFFTworksp[k]+1);
-			gFFTworksp[k][0] *=tAnaMagn[k];
-			gFFTworksp[k][1] *=tAnaMagn[k];
-
-		} 
-
-		/* do inverse transform */
-		fftwf_execute(backwards);
-
-		long inindex=0;
-		/* do windowing and add to output accumulator */ 
-
-		/*
-		 *	For this step, we observe that tOutputAccum is a circular buffer
-		 *  of size fftFrameSize.  The previous stepSize frames of data we
-		 *  can discard, since it was just written out.  However, the remaining
-		 *  Data we want to accumulate to.  Thus, we add to the next fftFrameSize - stepSize
-		 *  frames of data, and overwrite the last stepSize frames.  However,
-		 *  This is a little more complicated because we have to wrap around the circular buffers.
-		 */
-		long lastind=outAccumIndex-stepSize;
-		if(lastind<0) {
-			lastind+=fftFrameSize;
-			//Fill up the part which we are still adding to.
-			for(long k=outAccumIndex; k < lastind; k++) {
-				tOutputAccum[k] += twindow[inindex]*tFFTRealBuffer[inindex]/(dOutfactor);
-				inindex++;
-			}
-			//start to overwrite the old data at the end of the buffer.
-			for(long k=lastind; k<fftFrameSize; k++) {
-				tOutputAccum[k] = twindow[inindex]*tFFTRealBuffer[inindex]/(dOutfactor);
-				inindex++;
-			}
-			//finish overwriting the remaining data at the wraparound.
-			for(long k=0; k<outAccumIndex; k++) {
-				tOutputAccum[k] = twindow[inindex]*tFFTRealBuffer[inindex]/(dOutfactor);
-				inindex++;
-			}
-		} else {
-			//Start accumulating at the end of the buffer.
-			for(long k=outAccumIndex; k < fftFrameSize; k++) {
-				tOutputAccum[k] += twindow[inindex]*tFFTRealBuffer[inindex]/(dOutfactor);
-				inindex++;
-			}
-			//continue accumulating at the beginning.
-			for(long k=0; k < lastind; k++) {
-				tOutputAccum[k] += twindow[inindex]*tFFTRealBuffer[inindex]/(dOutfactor);
-				inindex++;
-			}
-			//overwrite the last bit of the data.
-			for(long k=lastind; k<outAccumIndex; k++) {
-				tOutputAccum[k] = twindow[inindex]*tFFTRealBuffer[inindex]/(dOutfactor);
-				inindex++;
+			knockout(gAnaMagn[k],gAnaPhase1[k],gFFTworksp, gAnaMagn2,gDecay,coef,k,fDecayRate,iBlur);
+			if(!centreExtract) {
+				knockout(gAnaMagn2[k],gAnaPhase2[k],gFFTworksp2, gAnaMagn,gDecay2,coef,k,fDecayRate,iBlur);
 			}
 		}
+		/* do inverse transform */
+		fftwf_execute(backward_sp1);
+		sumIntoCircularBuffer(tOutputAccum,dOutfactor,outAccumIndex,stepSize,fftFrameSize);
+		if(!centreExtract) {
+			fftwf_execute(backward_sp2);
+		}
+		sumIntoCircularBuffer(tOutputAccum2,dOutfactor,outAccumIndex,stepSize,fftFrameSize);
+
 		//We output as much of the buffer as we can now, and use copiesremaining to notify later run() calls to empty the
 		//rest of the buffer when it can.
 		long overflow=stepSize-numSampsToProcess;
@@ -455,8 +469,10 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 			copiesremaining=overflow;
 			numcopy=numSampsToProcess;
 		}
-		outAccumIndex=copy_from_circular_buffer(fftFrameSize,outdata,tOutputAccum,outAccumIndex,numcopy,NULL);
-		outdata+=numcopy;
+		copy_from_circular_buffer(fftFrameSize,outdata1,tOutputAccum,outAccumIndex,numcopy,NULL);
+		outAccumIndex=copy_from_circular_buffer(fftFrameSize,outdata2,tOutputAccum2,outAccumIndex,numcopy,NULL);
+		outdata1+=numcopy;
+		outdata2+=numcopy;
 		
 		numSampsToProcess-=samples_needed_in_buffer;
 		indata+=samples_needed_in_buffer;

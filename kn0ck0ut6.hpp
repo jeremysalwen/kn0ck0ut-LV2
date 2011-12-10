@@ -51,20 +51,23 @@ private:
 	unsigned int goverlap;
 	unsigned int gfftSize;
 	double sampleRate;
-	
-	void do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp, float sampleRate, float *indata, float *indata2, float *outdata, float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract, bool consider_phase);
+	inline void knockout(float origmag,float origphase, fftwf_complex * __restrict workspace, float* __restrict magnbuff, float* __restrict decaybuff, float coef, int k, float fDecayRate, int iBlur);
+	void do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp, float sampleRate, float *indata, float *indata2, float *outdata1,float *outdata2, float fDecayRate, int iBlur, int loCut, int HiCut, int centreExtract, bool consider_phase);
+	inline void sumIntoCircularBuffer(float* __restrict outaccum,float dOutFactor,long outAccumIndex,long stepSize,long fftFrameSize);
 	void makelookup(int fftFrameSize);
 	inline float phaseToFrequency(float phase, int k,float dOversampbytwopi, float expct);
 	
-	float*  __restrict gInFIFO ;
+	float*  __restrict gInFIFO;
+	float* __restrict gInFIFO2;
 	float* __restrict gOutputAccum;
+	float* __restrict gOutputAccum2;
 	float* __restrict FFTRealBuffer;
 	float* __restrict gAnaPhase1;
 	float* __restrict gAnaPhase2;
 	float* __restrict gAnaMagn;
-	float* __restrict gInFIFO2;
 	float* __restrict gAnaMagn2;
 	float* __restrict gDecay;
+	float* __restrict gDecay2;
 	float* __restrict window;
 
 	long gRover;
@@ -76,7 +79,8 @@ private:
 	fftwf_complex * gFFTworksp;
 	fftwf_plan forward_sp1;
 	fftwf_plan forward_sp2;
-	fftwf_plan backwards;
+	fftwf_plan backward_sp1;
+	fftwf_plan backward_sp2;
 
 };
 
