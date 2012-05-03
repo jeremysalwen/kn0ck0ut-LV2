@@ -318,33 +318,33 @@ inline void AKnockout::sumIntoCircularBuffer(float* __restrict outaccum,float dO
 		lastind+=fftFrameSize;
 		//Fill up the part which we are still adding to.
 		for(long k=outAccumIndex; k < lastind; k++) {
-			outaccum[k] += window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+			outaccum[k] += window[inindex]*FFTRealBuffer[inindex]*(dOutfactor);
 			inindex++;
 		}
 		//start to overwrite the old data at the end of the buffer.
 		for(long k=lastind; k<fftFrameSize; k++) {
-			outaccum[k] = window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+			outaccum[k] = window[inindex]*FFTRealBuffer[inindex]*(dOutfactor);
 			inindex++;
 		}
 		//finish overwriting the remaining data at the wraparound.
 		for(long k=0; k<outAccumIndex; k++) {
-			outaccum[k] = window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+			outaccum[k] = window[inindex]*FFTRealBuffer[inindex]*(dOutfactor);
 			inindex++;
 		}
 	} else {
 		//Start accumulating at the end of the buffer.
 		for(long k=outAccumIndex; k < fftFrameSize; k++) {
-			outaccum[k] += window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+			outaccum[k] += window[inindex]*FFTRealBuffer[inindex]*(dOutfactor);
 			inindex++;
 		}
 		//continue accumulating at the beginning.
 		for(long k=0; k < lastind; k++) {
-			outaccum[k] += window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+			outaccum[k] += window[inindex]*FFTRealBuffer[inindex]*(dOutfactor);
 			inindex++;
 		}
 		//overwrite the last bit of the data.
 		for(long k=lastind; k<outAccumIndex; k++) {
-			outaccum[k] = window[inindex]*FFTRealBuffer[inindex]/(dOutfactor);
+			outaccum[k] = window[inindex]*FFTRealBuffer[inindex]*(dOutfactor);
 			inindex++;
 		}
 	}
@@ -370,7 +370,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 	long stepSize = fftFrameSize/osamp;
 	//float dOversampbytwopi = osamp/(PI*2);	
 	//float freqPerBin = sampleRate/fftFrameSize;
-	float dOutfactor = fftFrameSize2*osamp;
+	float dOutfactor = 1/(fftFrameSize2*osamp);
 	fDecayRate=(fDecayRate>0)*(4.00001-(fDecayRate*fDecayRate*4));
 
 	//float expct = 2.*PI*(double)stepSize/(double)fftFrameSize;
