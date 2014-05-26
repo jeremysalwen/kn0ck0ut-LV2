@@ -209,7 +209,7 @@ void AKnockout::run(uint32_t sampleFrames)
 		clearBuffers();
 	}
 	//Latency works out to be exactly the fft size.
-	*p(p_latency)=gfftSize;
+	if(p(p_latency)) { *p(p_latency)=gfftSize; }
 	CLAMP_PORT(int,iBlur,p_blur)
 	CLAMP_PORT(float,fDecay,p_decay)
 	bool consider_phase = *p(p_phase)>0;

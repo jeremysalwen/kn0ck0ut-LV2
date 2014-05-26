@@ -119,4 +119,5 @@
     lv2:symbol "latency";
     lv2:name "Latency";
     lv2:portProperty lv2:reportsLatency;
+    lv2:portProperty lv2:connectionOptional;
     ].
