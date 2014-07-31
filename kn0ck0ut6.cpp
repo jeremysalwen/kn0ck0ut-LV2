@@ -370,7 +370,7 @@ void AKnockout::do_rebuild(long numSampsToProcess, long fftFrameSize, long osamp
 	long stepSize = fftFrameSize/osamp;
 	//float dOversampbytwopi = osamp/(PI*2);	
 	//float freqPerBin = sampleRate/fftFrameSize;
-	float dOutfactor = 1/(fftFrameSize2*osamp);
+	float dOutfactor = 1.0f/(fftFrameSize2*osamp);
 	fDecayRate=(fDecayRate>0)*(4.00001-(fDecayRate*fDecayRate*4));
 
 	//float expct = 2.*PI*(double)stepSize/(double)fftFrameSize;
