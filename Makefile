@@ -30,6 +30,6 @@ libkn0ck0ut.so: kn0ck0ut6.o
 	$(CXX) kn0ck0ut6.o $(LDFLAGS) -o libkn0ck0ut.so
 	
 clean:
-	rm rm -rf $(BUNDLE) *.so *.o *.peg
+	rm -rf $(BUNDLE) *.so *.o *.peg
 	
 .phony: clean all install
