@@ -5,8 +5,8 @@ An LV2 port of kn0ck0ut (http://www.freewebs.com/st3pan0va/)
 Kn0ck0ut-LV2 is an LV2 plugin to perform spectral subtraction.  It can be used 
 to achieve a wide variety of effects, most notably removing or extracting the
 center of a two channel audio file.  As Kn0ck0ut is only a plugin, you will
-need a host for LV2 plugins in order to use it, such as Ardour, Qtractor, Igen,
-lv2_jack_host, or lv2file.
+need a host for LV2 plugins in order to use it, such as Ardour, Qtractor, Ingen,
+jalv, lv2_jack_host, or lv2file.
 
 It requires lv2-c++-tools, lv2core, and fftw3 to build.
 
@@ -17,7 +17,7 @@ kn0ck0ut-LV2 is released under the terms of the GPL version 3.
 
 In addition to the features of the original Kn0ck0ut, Kn0ck0ut-LV2 features:
 
-* Improved performance through use of FFTW and more efficent buffering code
+* Improved performance through use of FFTW and more efficent buffering code.
 * Completely variable FFT size and overlap amount controls.
 * Experimental "Phase Compensation" option, which will perhaps preserve
   additional fidelity in certain cases.
