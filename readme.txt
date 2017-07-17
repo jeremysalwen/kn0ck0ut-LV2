@@ -25,4 +25,4 @@ In addition to the features of the original Kn0ck0ut, Kn0ck0ut-LV2 features:
 * Stereo output for center removal.
 
 A copy of the original readme included with Kn0ck0ut can be found in the file
-readme.orig
+readme.txt.orig
